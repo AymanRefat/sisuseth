@@ -10,7 +10,7 @@ pytestmark = pytest.mark.usefixtures("seeded")
 
 def test_defaults_to_finnish(content):
     data = content()
-    assert data["texts"]["hero.title"] == "Älä tuhlaa viikonloppuasi!"
+    assert data["texts"]["hero.title"] == "Älä tuhlaa *viikonloppuasi*!"
     assert data["faq"][0]["q"] == "Onko turvallista päästää vieraita kotiin?"
 
 
