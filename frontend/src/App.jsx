@@ -11,6 +11,7 @@ import VideoStrip from "./features/VideoStrip.jsx";
 import { useInView } from "./features/utils.js";
 import Carousel from "./components/Carousel.jsx";
 import ScrollTape from "./components/ScrollTape.jsx";
+import MakersMark from "./components/MakersMark.jsx";
 import { Chair, Lamp, Plant, Screw, Scribble, Shelf } from "./components/Illustrations.jsx";
 import { useAutoReveal, useScroll } from "./components/motion.js";
 import PhotoGallery from "./components/Gallery.jsx";
@@ -446,7 +447,10 @@ function Footer({ s }) {
           {s.areas.map((a) => <p key={a}>✓ {a}</p>)}
         </div>
       </div>
-      <p className="container copyright">© {new Date().getFullYear()} SISUSETH. {t("footer.rights")}</p>
+      <div className="container copyright">
+        <span>© {new Date().getFullYear()} SISUSETH. {t("footer.rights")}</span>
+        <MakersMark />
+      </div>
     </footer>
   );
 }

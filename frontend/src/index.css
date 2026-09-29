@@ -450,3 +450,39 @@ input[type="range"] { padding: 0; accent-color: var(--brand); }
 .fab-hint::after { content: ""; position: absolute; right: -5px; top: 50%; width: 10px; height: 10px; background: inherit; transform: translateY(-50%) rotate(45deg); }
 @keyframes hint { 0% { opacity: 0; transform: translateX(8px); } 8%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 @media (max-width: 600px) { .contact-fab { right: 16px; bottom: 16px; } }
+
+/* ---------- Developer credit: maker's mark stamp (components/MakersMark.jsx) ---------- */
+.copyright { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.makers-mark { position: relative; display: inline-flex; align-items: center; gap: 14px; text-decoration: none; color: #e8cfa9; }
+.mm-seal { position: relative; width: 96px; height: 96px; overflow: visible; flex: none;
+  transform: translateY(-60px) rotate(-25deg) scale(1.6); opacity: 0; filter: drop-shadow(0 18px 14px rgba(0,0,0,.5)); }
+.makers-mark.stamped .mm-seal { animation: stamp .9s cubic-bezier(.5, 0, .3, 1.4) .2s forwards; }
+.mm-rim { fill: none; stroke: #c9975f; stroke-width: 5; stroke-dasharray: 2 5; }
+.mm-inner { fill: rgba(201,151,95,.12); stroke: #c9975f; stroke-width: 3; }
+.mm-ring { transform-origin: 100px 100px; transition: transform 1.2s var(--ease); }
+.makers-mark:hover .mm-ring { transform: rotate(180deg); }
+.mm-ring-text { fill: #e8cfa9; font: 700 15px var(--font-body); letter-spacing: .5px; }
+.mm-mallet rect { fill: #c9975f; }
+.makers-mark:hover .mm-mallet { animation: tap .5s ease-in-out 2; }
+.mm-year { fill: #c9975f; font: 700 12px var(--font-body); text-anchor: middle; letter-spacing: 2px; }
+/* burned-wood ring left behind where the stamp lands */
+.mm-burn { position: absolute; left: 48px; top: 50%; width: 110px; height: 110px; border-radius: 50%; transform: translate(-50%, -50%) scale(.4); opacity: 0;
+  background: radial-gradient(circle, rgba(0,0,0,0) 52%, rgba(10,5,2,.55) 60%, rgba(120,60,20,.35) 68%, rgba(0,0,0,0) 74%); pointer-events: none; }
+.makers-mark.stamped .mm-burn { animation: burn 1.4s ease-out .75s forwards; }
+.mm-caption { display: flex; flex-direction: column; line-height: 1.25; opacity: 0; transform: translateX(-8px); }
+.makers-mark.stamped .mm-caption { animation: fade-up .6s var(--ease) 1s forwards; }
+.mm-caption small { text-transform: uppercase; letter-spacing: .12em; font-size: .7rem; color: #a88a6c; }
+.mm-caption strong { font: 700 1.25rem var(--font-display); color: #f3dcb8; }
+.mm-link { font-size: .8rem; font-weight: 600; color: var(--oak); transition: color .2s; }
+.makers-mark:hover .mm-link { color: var(--brand); }
+.makers-mark:focus-visible { outline: 2px solid var(--oak); outline-offset: 6px; border-radius: 12px; }
+@keyframes stamp {
+  0% { opacity: 0; transform: translateY(-60px) rotate(-25deg) scale(1.6); }
+  55% { opacity: 1; transform: translateY(0) rotate(-8deg) scale(.92); filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+  75% { transform: translateY(-4px) rotate(-8deg) scale(1.03); }
+  100% { opacity: 1; transform: rotate(-8deg) scale(1); filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+}
+@keyframes burn { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 30% { opacity: 1; } 100% { opacity: .55; transform: translate(-50%, -50%) scale(1); } }
+@keyframes tap { 0%, 100% { transform: translate(100px, 96px) rotate(-35deg); } 50% { transform: translate(100px, 96px) rotate(-5deg); } }
+@media (prefers-reduced-motion: reduce) { .mm-seal, .mm-caption { opacity: 1; transform: rotate(-8deg); } .mm-caption { transform: none; } }
+@media (max-width: 600px) { .copyright { flex-direction: column-reverse; align-items: flex-start; } }
