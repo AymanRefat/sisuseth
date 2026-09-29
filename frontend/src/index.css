@@ -218,3 +218,10 @@ input[type="range"] { padding: 0; accent-color: var(--brand); }
 .tax label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 .tax-row { display: flex; justify-content: space-between; font-size: 1.1rem; }
 .tax-row.total { font-size: 1.4rem; color: var(--good); border-top: 1px solid var(--line); padding-top: 8px; }
+
+/* Header on phones: the sticky bar already has the booking buttons; without it, keep only WhatsApp. */
+.header .book-buttons { flex-wrap: nowrap; }
+@media (max-width: 820px) {
+  body:has(.mobile-bar) .header .book-buttons { display: none; }
+  .header .btn-tg { display: none; }
+}

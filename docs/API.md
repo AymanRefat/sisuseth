@@ -12,4 +12,4 @@ Built with Django REST Framework (`backend/content/views.py` and `serializers.py
 
 The POST endpoints are limited to **20 requests per hour per IP address** (`FormThrottle`).
 
-Tests: `cd backend && uv run python manage.py test content`.
+Tests: `cd backend && uv run pytest` (see `backend/tests/`).

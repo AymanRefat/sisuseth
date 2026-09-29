@@ -18,7 +18,7 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY backend/ ./
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 COPY frontend/src/locales /app/frontend/src/locales
-RUN DJANGO_SECRET_KEY=build python manage.py collectstatic --noinput
+RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
 EXPOSE 8000
 # /data is a persistent volume holding the SQLite DB and uploaded images.
 CMD ["sh", "-c", "mkdir -p /data && python manage.py migrate --noinput && python manage.py seed && gunicorn config.wsgi -b 0.0.0.0:${PORT:-8000} -w 2"]

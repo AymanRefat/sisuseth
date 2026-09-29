@@ -61,7 +61,7 @@ cd ../frontend && npm install && npm run dev   # site on :5173 (proxies /api and
 
 Add a Python dependency with `uv add <package>`.
 
-Run the tests with `uv run python manage.py test content`.
+Run the tests with `cd backend && uv run pytest`. They are in `backend/tests/`.
 
 The logo is also the favicon. `frontend/public/favicon.png` is the default, and the site switches to the logo uploaded in the CMS as soon as the page loads.
 
