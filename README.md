@@ -18,7 +18,7 @@ backend/
     models.py        Everything editable in the CMS, including the FEATURES on/off list
     serializers.py   DRF serializers (picks the right language)
     views.py         API endpoints
-    services.py      Telegram alerts, Google reviews, referral codes
+    services.py      Telegram booking alerts
     admin.py         CMS screens
     management/commands/seed.py   Starting content
     seed_images/     Starting photos (gallery, logo, hero)
