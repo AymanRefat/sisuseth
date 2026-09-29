@@ -62,3 +62,27 @@ def test_obsolete_text_keys_removed_and_new_ones_added():
     seed()
     assert not TextBlock.objects.filter(key="old.removed.key").exists()
     assert TextBlock.objects.filter(key="hero.title").exists()
+
+
+def test_migrate_loads_starting_content(settings):
+    """A brand-new database gets all starting content from `migrate` alone."""
+    from content.apps import seed_after_migrate
+    from django.apps import apps
+
+    GalleryImage.objects.all().delete()
+    SiteSettings.objects.all().delete()  # like a fresh database
+    settings.SEED_ON_MIGRATE = True
+    seed_after_migrate(sender=apps.get_app_config("content"), using="default", verbosity=0)
+    assert GalleryImage.objects.count() == 15 and FAQ.objects.count() == 6 and PainPoint.objects.count() == 6
+    assert TextBlock.objects.filter(key="hero.title").exists()
+
+
+def test_migrate_can_skip_seeding(settings):
+    from content.apps import seed_after_migrate
+    from django.apps import apps
+
+    FAQ.objects.all().delete()
+    SiteSettings.objects.all().delete()
+    settings.SEED_ON_MIGRATE = False
+    seed_after_migrate(sender=apps.get_app_config("content"), using="default", verbosity=0)
+    assert FAQ.objects.count() == 0

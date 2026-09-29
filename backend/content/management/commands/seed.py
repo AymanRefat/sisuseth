@@ -227,8 +227,9 @@ class Command(BaseCommand):
         SiteSettings.objects.filter(pk=1).update(seeded_sections=sorted(done))
 
         added, removed = self.sync_text_blocks()
-        self.stdout.write(self.style.SUCCESS(
-            f"Loaded: {', '.join(loaded) or 'nothing new'}. Text blocks: {added} added, {removed} removed."))
+        if options.get("verbosity", 1) > 0:
+            self.stdout.write(self.style.SUCCESS(
+                f"Seed – loaded: {', '.join(loaded) or 'nothing new'}. Text blocks: {added} added, {removed} removed."))
 
     def sync_text_blocks(self):
         locales = {lang: json.loads((LOCALES_DIR / f"{lang}.json").read_text()) for lang in ("en", "fi", "sv")}

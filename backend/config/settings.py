@@ -95,6 +95,9 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "data" / "media"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# `migrate` loads the starting content once per section (content/apps.py → seed command).
+SEED_ON_MIGRATE = os.environ.get("SEED_ON_MIGRATE", "1") == "1"
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True

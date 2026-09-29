@@ -1,8 +1,13 @@
 import pytest
+from django.conf import settings as django_settings
 from django.core.cache import cache
 from django.core.management import call_command
 
 from content.models import SiteSettings
+
+# Tests load content themselves (the `seeded` fixture) into a temporary media folder,
+# so creating the test database must not write starting photos into backend/data/media.
+django_settings.SEED_ON_MIGRATE = False
 
 
 @pytest.fixture(autouse=True)
