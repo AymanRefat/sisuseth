@@ -53,11 +53,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # SQLite by default (free, zero-ops); set DATABASE_URL to switch to Postgres.
-DATABASES = {
-    "default": dj_database_url.config(
-        default=f"sqlite:///{os.environ.get('SQLITE_PATH', BASE_DIR / 'data' / 'db.sqlite3')}"
-    )
-}
+SQLITE_PATH = Path(os.environ.get("SQLITE_PATH", BASE_DIR / "data" / "db.sqlite3"))
+SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
+DATABASES = {"default": dj_database_url.config(default=f"sqlite:///{SQLITE_PATH}")}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -67,8 +65,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Admin panel is also translated, so the owner can use it in Finnish.
-LANGUAGE_CODE = "en"
-LANGUAGES = [("en", "English"), ("fi", "Suomi"), ("sv", "Svenska")]
+LANGUAGE_CODE = "fi"
+LANGUAGES = [("fi", "Suomi"), ("sv", "Svenska"), ("en", "English")]
 TIME_ZONE = "Europe/Helsinki"
 USE_I18N = True
 USE_TZ = True

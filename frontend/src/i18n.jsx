@@ -11,8 +11,7 @@ function initialLang() {
     const saved = localStorage.getItem("lang");
     if (saved in BUNDLED) return saved;
   } catch { /* storage unavailable */ }
-  const browser = (navigator.language || "fi").slice(0, 2);
-  return browser in BUNDLED ? browser : "fi";
+  return "fi"; // Finnish by default; visitors can switch and the choice is remembered.
 }
 
 const I18nContext = createContext(null);
@@ -38,7 +37,7 @@ export function I18nProvider({ children }) {
 
   // CMS override → bundled language → English → the key itself.
   const t = useCallback((key, vars = {}) => {
-    const text = content?.texts?.[key] ?? BUNDLED[lang][key] ?? en[key] ?? key;
+    const text = content?.texts?.[key] ?? BUNDLED[lang][key] ?? fi[key] ?? key;
     return text.replace(/\{(\w+)\}/g, (_, v) => (v in vars ? vars[v] : `{${v}}`));
   }, [content, lang]);
 

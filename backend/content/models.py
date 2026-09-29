@@ -1,4 +1,10 @@
+from io import BytesIO
+
+from django.core.files.base import ContentFile
 from django.db import models
+from PIL import Image, ImageOps
+
+MAX_IMAGE_PX = 1600
 
 LANGS = ("en", "fi", "sv")
 
@@ -22,6 +28,22 @@ class Translatable(models.Model):
 def _add(cls, name, field_cls, **kwargs):
     for lang, f in tr_fields(field_cls, **kwargs).items():
         cls.add_to_class(f"{name}_{lang}", f)
+
+
+def shrink_image(field, max_px=MAX_IMAGE_PX):
+    """Resize large uploads in place so the small server's disk and bandwidth stay cheap."""
+    if not field or getattr(field, "_committed", True):
+        return
+    img = ImageOps.exif_transpose(Image.open(field))
+    if max(img.size) <= max_px:
+        field.seek(0)
+        return
+    img.thumbnail((max_px, max_px))
+    fmt = "PNG" if img.mode in ("RGBA", "P") else "JPEG"
+    buf = BytesIO()
+    img.save(buf, fmt, quality=82, optimize=True)
+    name = field.name.rsplit(".", 1)[0] + (".png" if fmt == "PNG" else ".jpg")
+    field.save(name.rsplit("/", 1)[-1], ContentFile(buf.getvalue()), save=False)
 
 
 class Ordered(models.Model):
@@ -63,6 +85,10 @@ class Testimonial(Translatable, Ordered):
     city = models.CharField(max_length=50)
     photo = models.ImageField(upload_to="testimonials/", blank=True)
 
+    def save(self, *args, **kwargs):
+        shrink_image(self.photo, 400)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.author} ({self.city})"
 
@@ -80,16 +106,15 @@ _add(FAQ, "answer", models.TextField)
 
 
 class GalleryImage(Ordered):
-    image = models.ImageField(upload_to="gallery/", blank=True)
-    image_url = models.URLField(blank=True, help_text="Used when no file is uploaded")
+    image = models.ImageField(upload_to="gallery/", help_text="Large photos are resized automatically")
     caption = models.CharField(max_length=150, blank=True)
 
-    @property
-    def src(self):
-        return self.image.url if self.image else self.image_url
+    def save(self, *args, **kwargs):
+        shrink_image(self.image)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.caption or self.src
+        return self.caption or self.image.name
 
 
 class BookingRequest(models.Model):
@@ -99,7 +124,7 @@ class BookingRequest(models.Model):
     city = models.CharField(max_length=50, blank=True)
     furniture = models.TextField()
     preferred_date = models.DateField(null=True, blank=True)
-    language = models.CharField(max_length=2, default="en")
+    language = models.CharField(max_length=2, default="fi")
     status = models.CharField(max_length=10, choices=STATUS, default="new")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -115,6 +140,7 @@ class SiteSettings(models.Model):
 
     phone = models.CharField(max_length=30, default="+358 40 871 3636")
     whatsapp_number = models.CharField(max_length=20, default="358408713636", help_text="Digits only, with country code")
+    telegram_username = models.CharField(max_length=50, blank=True, help_text="Without @. Leave empty to hide Telegram buttons")
     email = models.EmailField(default="info@sisuseth.com")
     instagram_url = models.URLField(blank=True)
     tiktok_url = models.URLField(blank=True)
@@ -123,6 +149,10 @@ class SiteSettings(models.Model):
     happy_customers = models.PositiveIntegerField(default=500)
     starting_price_eur = models.PositiveIntegerField(default=50)
     hourly_rate_eur = models.PositiveIntegerField(default=40)
+    additional_item_eur = models.PositiveIntegerField(default=45, help_text="Calculator: price per extra item")
+    brands = models.CharField(max_length=300, default="IKEA, JYSK, Sotka, ISKU, Treetale, Kodin1", help_text="Comma separated")
+    logo = models.ImageField(upload_to="site/", blank=True)
+    hero_image = models.ImageField(upload_to="site/", blank=True, help_text="Big photo at the top of the page")
 
     class Meta:
         verbose_name = verbose_name_plural = "Site settings"
@@ -131,6 +161,8 @@ class SiteSettings(models.Model):
         return "Site settings"
 
     def save(self, *args, **kwargs):
+        shrink_image(self.logo, 600)
+        shrink_image(self.hero_image)
         self.pk = 1
         super().save(*args, **kwargs)
 

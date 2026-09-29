@@ -4,45 +4,64 @@ import { LANGUAGES, useI18n } from "./i18n.jsx";
 const DEFAULT_SETTINGS = {
   phone: "+358 40 871 3636", whatsapp: "358408713636", email: "info@sisuseth.com",
   areas: ["Helsinki", "Espoo", "Vantaa"], happyCustomers: 500, startingPrice: 50, hourlyRate: 40,
+  additionalItem: 45, brands: ["IKEA", "JYSK", "Sotka", "ISKU", "Treetale", "Kodin1"], logo: "", heroImage: "",
 };
 const PAINS = ["tools", "time", "instructions", "damage", "space", "stress"];
-const BRANDS = ["IKEA", "JYSK", "Sotka", "ISKU", "Treetale", "Kodin1"];
-const ADDITIONAL_ITEM_EUR = 45;
 
 const waLink = (number, text) => `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+// Telegram prefills the message on recent apps; older ones just open the chat.
+const tgLink = (username, text) => `https://t.me/${username}?text=${encodeURIComponent(text)}`;
+
+function BookButtons({ s, text, label, compact = false }) {
+  const { t } = useI18n();
+  const message = text ?? t("wa.default");
+  const cls = compact ? "btn btn-sm" : "btn";
+  return (
+    <span className="book-buttons">
+      <a className={`${cls} btn-wa`} href={waLink(s.whatsapp, message)} target="_blank" rel="noreferrer">
+        {compact ? "WhatsApp" : label}
+      </a>
+      {s.telegram && (
+        <a className={`${cls} btn-tg`} href={tgLink(s.telegram, message)} target="_blank" rel="noreferrer">Telegram</a>
+      )}
+    </span>
+  );
+}
 
 export default function App() {
   const { t, content } = useI18n();
   const s = { ...DEFAULT_SETTINGS, ...content?.settings };
   const areas = s.areas.join(", ");
-  const wa = (text = t("wa.default")) => waLink(s.whatsapp, text);
 
   return (
     <>
-      <Header wa={wa} />
+      <Header s={s} />
       <main>
         <section className="hero">
-          <div className="container">
+          <div className="container hero-grid">
+            <div>
             <p className="eyebrow">{t("hero.eyebrow")}</p>
             <h1>{t("hero.title")}</h1>
             <p className="lead">{t("hero.subtitle", { areas })}</p>
             <div className="actions">
-              <a className="btn" href={wa()} target="_blank" rel="noreferrer">{t("hero.cta")}</a>
+              <BookButtons s={s} label={t("hero.cta")} />
               <a className="btn btn-ghost" href="#gallery">{t("hero.secondary")}</a>
             </div>
             <div className="badges">
               <span>⭐ {t("hero.badge", { count: s.happyCustomers })}</span>
               <span>💶 {t("hero.from", { price: s.startingPrice })}</span>
             </div>
+            </div>
+            {s.heroImage && <img className="hero-img" src={s.heroImage} alt="" />}
           </div>
         </section>
 
         <Pains />
-        <Gallery images={content?.gallery ?? []} wa={wa} areas={areas} />
+        <Gallery images={content?.gallery ?? []} s={s} areas={areas} />
         <Steps />
         <Compare />
-        <Reviews items={content?.testimonials ?? []} count={s.happyCustomers} />
-        <Pricing content={content} settings={s} wa={wa} />
+        <Reviews items={content?.testimonials ?? []} count={s.happyCustomers} brands={s.brands} />
+        <Pricing content={content} settings={s} />
         <Faq items={content?.faq ?? []} />
         <BookingForm />
 
@@ -51,7 +70,7 @@ export default function App() {
             <h2>{t("cta.title")}</h2>
             <p>{t("cta.subtitle")}</p>
             <div className="actions center">
-              <a className="btn" href={wa()} target="_blank" rel="noreferrer">{t("cta.whatsapp")}</a>
+              <BookButtons s={s} label={t("cta.whatsapp")} />
               <a className="btn btn-ghost" href={`tel:${s.phone.replace(/\s/g, "")}`}>{t("cta.call")}</a>
             </div>
             <p className="muted">{t("cta.perks")}</p>
@@ -63,12 +82,12 @@ export default function App() {
   );
 }
 
-function Header({ wa }) {
+function Header({ s }) {
   const { t, lang, setLang } = useI18n();
   return (
     <header className="header">
       <div className="container header-row">
-        <a href="#" className="logo">SISUSETH</a>
+        <a href="#" className="logo">{s.logo ? <img src={s.logo} alt="SISUSETH" /> : "SISUSETH"}</a>
         <nav>
           <a href="#services">{t("nav.services")}</a>
           <a href="#reviews">{t("nav.reviews")}</a>
@@ -81,7 +100,7 @@ function Header({ wa }) {
               <button key={code} className={code === lang ? "active" : ""} onClick={() => setLang(code)}>{label}</button>
             ))}
           </div>
-          <a className="btn btn-sm" href={wa()} target="_blank" rel="noreferrer">{t("nav.book")}</a>
+          <BookButtons s={s} label={t("nav.book")} compact />
         </div>
       </div>
     </header>
@@ -112,7 +131,7 @@ function Pains() {
   );
 }
 
-function Gallery({ images, wa, areas }) {
+function Gallery({ images, s, areas }) {
   const { t } = useI18n();
   return (
     <section id="gallery" className="section alt">
@@ -123,7 +142,7 @@ function Gallery({ images, wa, areas }) {
           {images.map((img) => <img key={img.id} src={img.src} alt={img.caption} loading="lazy" />)}
         </div>
         <div className="actions center">
-          <a className="btn" href={wa()} target="_blank" rel="noreferrer">{t("gallery.cta")}</a>
+          <BookButtons s={s} label={t("gallery.cta")} />
         </div>
       </div>
     </section>
@@ -153,13 +172,11 @@ function Steps() {
 
 function Compare() {
   const { t } = useI18n();
-  const diyTimes = ["9:00", "10:30", "12:00", "15:00", "18:00"];
-  const usTimes = ["9:00", "10:00", "12:00", "14:00", "15:00"];
-  const col = (key, times, icon, cls) => (
+  const col = (key, icon, cls) => (
     <div className={`card compare ${cls}`}>
       <h3>{icon} {t(`compare.${key}`)}</h3>
       <ul>
-        {times.map((time, i) => <li key={i}><b>{time}</b> {t(`compare.${key}.${i + 1}`)}</li>)}
+        {[1, 2, 3, 4, 5].map((n) => <li key={n}><b>{t(`compare.${key}.${n}.time`)}</b> {t(`compare.${key}.${n}`)}</li>)}
       </ul>
     </div>
   );
@@ -168,15 +185,15 @@ function Compare() {
       <div className="container">
         <h2 className="center">{t("compare.title")}</h2>
         <div className="grid grid-2">
-          {col("diy", diyTimes, "❌", "bad")}
-          {col("us", usTimes, "✅", "good")}
+          {col("diy", "❌", "bad")}
+          {col("us", "✅", "good")}
         </div>
       </div>
     </section>
   );
 }
 
-function Reviews({ items, count }) {
+function Reviews({ items, count, brands }) {
   const { t } = useI18n();
   return (
     <section id="reviews" className="section">
@@ -191,20 +208,20 @@ function Reviews({ items, count }) {
             </figure>
           ))}
         </div>
-        <p className="center muted brands">{t("brands.title")} {BRANDS.join(" · ")}</p>
+        <p className="center muted brands">{t("brands.title")} {brands.join(" · ")}</p>
       </div>
     </section>
   );
 }
 
-function Pricing({ content, settings, wa }) {
+function Pricing({ content, settings }) {
   const { t } = useI18n();
   const options = content?.calculator ?? [];
   const [optionId, setOptionId] = useState(null);
   const [qty, setQty] = useState(1);
   const option = options.find((o) => o.id === optionId) ?? options[0];
   const estimate = option
-    ? option.hourly ? `€${option.price}${t("calc.hourly")}` : `€${option.price + (qty - 1) * ADDITIONAL_ITEM_EUR}`
+    ? option.hourly ? `€${option.price}${t("calc.hourly")}` : `€${option.price + (qty - 1) * settings.additionalItem}`
     : "";
 
   return (
@@ -224,12 +241,12 @@ function Pricing({ content, settings, wa }) {
             {!option.hourly && (
               <label>{t("calc.qty")}: {qty}{qty === 10 ? "+" : ""}
                 <input type="range" min="1" max="10" value={qty} onChange={(e) => setQty(Number(e.target.value))} />
-                <small className="muted">{t("calc.extra")}: €{ADDITIONAL_ITEM_EUR}</small>
+                <small className="muted">{t("calc.extra")}: €{settings.additionalItem}</small>
               </label>
             )}
             <div className="calc-total">{estimate}</div>
             <p className="muted">{t("calc.includes")}</p>
-            <a className="btn" href={wa(t("wa.estimate", { price: estimate }))} target="_blank" rel="noreferrer">{t("calc.book")}</a>
+            <BookButtons s={settings} text={t("wa.estimate", { price: estimate })} label={t("calc.book")} />
           </div>
         )}
 
@@ -246,9 +263,7 @@ function Pricing({ content, settings, wa }) {
                 <li>{t("pricing.cleanup")}</li>
                 {p.referralBonus > 0 && <li>{t("pricing.referral", { bonus: p.referralBonus })}</li>}
               </ul>
-              <a className="btn" href={wa(t("wa.package", { name: p.name, price: p.price }))} target="_blank" rel="noreferrer">
-                {t("pricing.book", { name: p.name })}
-              </a>
+              <BookButtons s={settings} text={t("wa.package", { name: p.name, price: p.price })} label={t("pricing.book", { name: p.name })} />
             </div>
           ))}
         </div>

@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files import File
 from django.core.management.base import BaseCommand
 
 from content.models import FAQ, CalculatorOption, GalleryImage, PricingPackage, SiteSettings, Testimonial, TextBlock
 
 LOCALES_DIR = Path(settings.BASE_DIR).parent / "frontend" / "src" / "locales"
+SEED_IMAGES = Path(__file__).resolve().parents[2] / "seed_images"
 
 PACKAGES = [
     # (en, fi, sv names), (en, fi, sv descriptions), price, hours, referral, popular
@@ -60,7 +62,6 @@ TESTIMONIALS = [
     ("Timo Aalto", "Espoo", "My elderly parents needed help with their new furniture. SISUSETH was patient, respectful and did beautiful work."),
 ]
 
-GALLERY = [f"https://sisuseth.com/assets/images/furntures/image_{n:02d}.jpg" for n in (*range(1, 10), *range(11, 17))]
 
 
 def tri(prefix, values):
@@ -71,11 +72,16 @@ class Command(BaseCommand):
     help = "Seed the database with the prototype content (only fills empty tables)."
 
     def handle(self, *args, **options):
-        SiteSettings.objects.get_or_create(pk=1, defaults={
+        cfg, created = SiteSettings.objects.get_or_create(pk=1, defaults={
             "instagram_url": "https://www.instagram.com/sisu_seth",
             "tiktok_url": "https://www.tiktok.com/@sisu.set",
             "facebook_url": "https://www.facebook.com/share/1B33mnzcYo/",
         })
+        if created:
+            for field, filename in (("logo", "logo.jpeg"), ("hero_image", "hero.jpg")):
+                with open(SEED_IMAGES / filename, "rb") as f:
+                    getattr(cfg, field).save(filename, File(f), save=False)
+            cfg.save()
 
         if not PricingPackage.objects.exists():
             for i, (names, descs, price, hours, bonus, popular) in enumerate(PACKAGES):
@@ -91,7 +97,11 @@ class Command(BaseCommand):
             for i, (author, city, quote) in enumerate(TESTIMONIALS):
                 Testimonial.objects.create(order=i, author=author, city=city, quote_en=quote)
         if not GalleryImage.objects.exists():
-            GalleryImage.objects.bulk_create(GalleryImage(order=i, image_url=u) for i, u in enumerate(GALLERY))
+            for i, path in enumerate(sorted((SEED_IMAGES / "gallery").glob("*.jpg"))):
+                with open(path, "rb") as f:
+                    photo = GalleryImage(order=i)
+                    photo.image.save(path.name, File(f), save=False)
+                    photo.save()
 
         # Every UI text becomes editable in the CMS, pre-filled with the bundled translations.
         locales = {lang: json.loads((LOCALES_DIR / f"{lang}.json").read_text()) for lang in ("en", "fi", "sv")}
