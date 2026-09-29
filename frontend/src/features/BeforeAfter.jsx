@@ -1,6 +1,7 @@
 // Feature: before_after. Drag to compare the boxes with the finished result.
 import { useState } from "react";
 import { useI18n } from "../i18n.jsx";
+import Carousel from "../components/Carousel.jsx";
 
 function Slider({ item }) {
   const { t } = useI18n();
@@ -30,7 +31,7 @@ export default function BeforeAfter({ items }) {
       <div className="container">
         <h2 className="center">{t("ba.title")}</h2>
         <p className="center muted">{t("ba.subtitle")}</p>
-        <div className="grid grid-2">{items.map((item) => <Slider key={item.id} item={item} />)}</div>
+        <Carousel className="before-after" label={t("ba.title")}>{items.map((item) => <Slider key={item.id} item={item} />)}</Carousel>
       </div>
     </section>
   );

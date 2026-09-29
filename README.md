@@ -40,11 +40,34 @@ docs/                Documentation
 | Pricing packages / Calculator options | Names, prices, hours, referral bonus, which package is marked "most popular" |
 | Gallery images | Photos uploaded to this server (stored in `/data/media`). Large uploads are resized to 1600px automatically. Includes 15 starting photos from `backend/content/seed_images` |
 | Testimonials, FAQ | Add, reorder and hide items, in EN, FI and SV |
+| Frustration cards, Steps, Weekend timeline rows | The lists in those sections: add, delete, reorder, translate |
 | Features | On/off switch for each optional section. See [docs/FEATURES.md](docs/FEATURES.md) |
 | Products | Price search and quiz: product, brand, price, assembly time |
 | Before/after photos, Videos | Uploaded to this server and shown in their own sections |
-| Referrals | Customers' referral codes and how many bookings each one brought |
 | Booking requests | Leads sent from the website form, with a status field (new, contacted, done) |
+
+Every CMS list is paginated (25 per page). On the website, long lists are laid out so they don't make the page endless:
+
+| Section | How it scales |
+|---|---|
+| Gallery | 9 photos, then a "Show more" button that loads the next 9 from `/api/gallery/?page=N`. Click a photo to open it full screen (arrows, keyboard, swipe) |
+| Reviews | A slider: 3 per page on desktop, 2 on tablets, 1 on phones. Arrows, dots and swipe; it moves on by itself every 7 s and pauses on hover or touch |
+| Before/after, Videos | The same slider, without automatic movement |
+| Product search | At most 6 results for each search |
+
+## Starting content and the database
+
+All content on the page comes from the database, so the owner can edit, replace or delete anything in the CMS. `python manage.py seed` (run automatically when the Docker container starts) fills in the prototype's content, **once per section**:
+
+- Each section is loaded once, and the section name is then stored in `SiteSettings.seeded_sections`. Later deploys **never** bring back content the owner deleted or changed.
+- If a section already has content, for example on an older database, it is never mixed with the starting content.
+- The owner's uploaded logo and hero image are never replaced.
+- UI text keys: new keys from `frontend/src/locales/*.json` are added, existing texts are never overwritten, and keys removed from the code are deleted.
+- To reload the starting content for a section on purpose (**this deletes that section's current content**):
+  `uv run python manage.py seed --reset gallery faq`
+  The sections are `site_images packages calculator faq testimonials gallery products pains steps timeline`.
+
+The `frontend/src/locales/*.json` files are the default texts. The site falls back to them if a text block is empty or the API can't be reached.
 
 ## Local development
 

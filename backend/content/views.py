@@ -1,15 +1,15 @@
-from rest_framework import generics, status
-from rest_framework.decorators import api_view, throttle_classes
-from rest_framework.exceptions import NotFound
+from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from . import serializers as s
 from .models import (
-    FAQ, LANGS, BeforeAfter, CalculatorOption, GalleryImage, PricingPackage, Product, Referral, SiteSettings,
-    Testimonial, TextBlock, Video,
+    FAQ, LANGS, BeforeAfter, CalculatorOption, GalleryImage, PainPoint, PricingPackage, Product, SiteSettings, Step,
+    Testimonial, TextBlock, TimelineEntry, Video,
 )
-from .services import fetch_google_reviews, new_referral_code, notify_telegram
+from .services import notify_telegram
 
 
 def get_lang(request):
@@ -28,7 +28,9 @@ SECTIONS = [
     ("calculator", CalculatorOption, s.CalculatorOptionSerializer),
     ("testimonials", Testimonial, s.TestimonialSerializer),
     ("faq", FAQ, s.FAQSerializer),
-    ("gallery", GalleryImage, s.GalleryImageSerializer),
+    ("pains", PainPoint, s.PainPointSerializer),
+    ("steps", Step, s.StepSerializer),
+    ("timeline", TimelineEntry, s.TimelineEntrySerializer),
     ("products", Product, s.ProductSerializer),
     ("beforeAfter", BeforeAfter, s.BeforeAfterSerializer),
     ("videos", Video, s.VideoSerializer),
@@ -47,7 +49,21 @@ def site_content(request):
     }
     for key, model, serializer in SECTIONS:
         data[key] = serializer(model.objects.filter(is_active=True), many=True, context=ctx).data
+    data["galleryCount"] = GalleryImage.objects.filter(is_active=True).count()
     return Response(data)
+
+
+class GalleryPagination(PageNumberPagination):
+    page_size = 9
+    page_size_query_param = "page_size"
+    max_page_size = 48
+
+
+class GalleryList(generics.ListAPIView):
+    """Gallery photos, 9 per page: /api/gallery/?page=2 → {count, next, previous, results}."""
+    queryset = GalleryImage.objects.filter(is_active=True)
+    serializer_class = s.GalleryImageSerializer
+    pagination_class = GalleryPagination
 
 
 class BookingCreate(generics.CreateAPIView):
@@ -56,30 +72,3 @@ class BookingCreate(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         notify_telegram(serializer.save())
-
-
-@api_view(["GET"])
-def google_reviews(request):
-    cfg = SiteSettings.load()
-    data = cfg.feature_google_reviews and fetch_google_reviews(cfg.google_place_id, get_lang(request))
-    return Response(data or {"enabled": False})
-
-
-@api_view(["POST"])
-@throttle_classes([FormThrottle])
-def create_referral(request):
-    """Customer asks for their own referral code. The same phone number always gets the same code."""
-    if not SiteSettings.load().feature_referrals:
-        raise NotFound
-    serializer = s.ReferralSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    phone = serializer.validated_data["phone"]
-    referral = Referral.objects.filter(phone=phone).first() or serializer.save(
-        code=new_referral_code(serializer.validated_data["name"]))
-    return Response({"code": referral.code}, status=status.HTTP_201_CREATED)
-
-
-@api_view(["GET"])
-def check_referral(request, code):
-    valid = SiteSettings.load().feature_referrals and Referral.objects.filter(code=code.upper(), is_active=True).exists()
-    return Response({"valid": valid})

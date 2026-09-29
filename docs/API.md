@@ -4,12 +4,10 @@ Built with Django REST Framework (`backend/content/views.py` and `serializers.py
 
 | Method | URL | Purpose |
 |---|---|---|
-| GET | `/api/content/?lang=fi` | Everything the page needs in one request: `settings` (contact, prices, `features` flags, …), `texts` (CMS text overrides), `packages`, `calculator`, `testimonials`, `faq`, `gallery`, `products`, `beforeAfter`, `videos`. Only active items are included. |
-| POST | `/api/bookings/` | Booking form. Body: `name`*, `phone`*, `furniture`*, `city`, `preferred_date` (YYYY-MM-DD), `language`, `referral_code`. Returns `201 {id, …}`, or `400 {field: [errors]}` if something is missing or invalid. Sends a Telegram alert if configured. |
-| GET | `/api/google-reviews/?lang=fi` | `{enabled: false}` or `{enabled, rating, count, url, reviews: [{author, photo, rating, text, when}]}`. Cached for 6 h. |
-| POST | `/api/referrals/` | Body `{name, phone}` → `201 {code}`. The same phone number always gets the same code. Returns `404` when the feature is off. |
-| GET | `/api/referrals/<code>/` | `{valid: true/false}`. Case-insensitive. |
+| GET | `/api/content/?lang=fi` | Everything the page needs in one request: `settings` (contact, prices, `features` flags, …), `texts` (CMS text overrides), `packages`, `calculator`, `testimonials`, `faq`, `pains`, `steps`, `timeline`, `products`, `beforeAfter`, `videos`, `galleryCount`. Only active items are included. |
+| GET | `/api/gallery/?page=1` | Gallery photos, 9 per page (`page_size` up to 48): `{count, next, previous, results: [{id, src, caption}]}`. The site shows the first page and loads more with a "Show more" button. |
+| POST | `/api/bookings/` | Booking form. Body: `name`*, `phone`*, `furniture`*, `city`, `preferred_date` (YYYY-MM-DD), `language`. Returns `201 {id, …}`, or `400 {field: [errors]}` if something is missing or invalid. Sends a Telegram alert if configured. |
 
-The POST endpoints are limited to **20 requests per hour per IP address** (`FormThrottle`).
+The booking endpoint is limited to **20 requests per hour per IP address** (`FormThrottle`).
 
 Tests: `cd backend && uv run pytest` (see `backend/tests/`).

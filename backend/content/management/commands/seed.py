@@ -1,12 +1,23 @@
-"""Load the initial content from the customer's prototype. Safe to re-run: only fills empty tables."""
+"""Load the starting content from the customer's prototype.
+
+Safe to run on every deploy:
+- Each section is filled ONCE and then remembered in SiteSettings.seeded_sections, so content the owner
+  deletes or replaces in the CMS is never brought back.
+- New UI text keys (added in frontend/src/locales/*.json) are added as text blocks; existing ones are
+  never overwritten. Keys that were removed from the code are deleted.
+"""
 import json
 from pathlib import Path
 
 from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
-from content.models import FAQ, Product, CalculatorOption, GalleryImage, PricingPackage, SiteSettings, Testimonial, TextBlock
+from content.models import (
+    FAQ, CalculatorOption, GalleryImage, PainPoint, PricingPackage, Product, SiteSettings, Step, Testimonial, TextBlock,
+    TimelineEntry,
+)
 
 LOCALES_DIR = Path(settings.BASE_DIR).parent / "frontend" / "src" / "locales"
 SEED_IMAGES = Path(__file__).resolve().parents[2] / "seed_images"
@@ -77,54 +88,156 @@ PRODUCTS = [
 ]
 
 
+PAINS = [  # (icon, (en, fi, sv) title, (en, fi, sv) text)
+    ("🔧", ["Missing tools", "Työkalut puuttuvat", "Verktyg saknas"], ["No right screwdrivers, allen keys or power tools", "Ei oikeita ruuvimeisseleitä, kuusiokoloavaimia tai sähkötyökaluja", "Inga rätta skruvmejslar, insexnycklar eller elverktyg"]),
+    ("⏰", ["No time", "Ei aikaa", "Ingen tid"], ["Weekends are precious – spend them with family", "Viikonloput ovat arvokkaita – vietä ne perheen kanssa", "Helgerna är värdefulla – tillbringa dem med familjen"]),
+    ("📄", ["Confusing instructions", "Sekavat ohjeet", "Förvirrande instruktioner"], ["Those diagrams make no sense", "Kuvista ei saa mitään selvää", "Ritningarna är omöjliga att förstå"]),
+    ("💔", ["Fear of damage", "Pelko vahingoista", "Rädsla för skador"], ["Worried about breaking expensive furniture", "Huoli kalliiden huonekalujen rikkoutumisesta", "Orolig att förstöra dyra möbler"]),
+    ("📦", ["Limited space", "Vähän tilaa", "Litet utrymme"], ["Small apartment, nowhere to spread out parts", "Pieni asunto, ei tilaa levittää osia", "Liten lägenhet, ingenstans att lägga ut delarna"]),
+    ("😤", ["Relationship stress", "Riitoja kotona", "Bråk hemma"], ["Arguments with your partner over assembly", "Kokoaminen aiheuttaa kinaa kumppanin kanssa", "Gräl med partnern om monteringen"]),
+]
+
+STEPS = [  # ((en, fi, sv) title, (en, fi, sv) text)
+    (["Book via WhatsApp", "Varaa WhatsAppilla", "Boka via WhatsApp"], ["Send a quick message with your furniture details. We reply within 30 minutes.", "Lähetä lyhyt viesti huonekaluista. Vastaamme 30 minuutin sisällä.", "Skicka ett kort meddelande om dina möbler. Vi svarar inom 30 minuter."]),
+    (["We arrive with tools", "Tulemme työkalujen kanssa", "Vi kommer med verktyg"], ["Our team brings all equipment. You don't lift a finger.", "Tiimimme tuo kaikki välineet. Sinun ei tarvitse nostaa sormeakaan.", "Vårt team tar med all utrustning. Du behöver inte lyfta ett finger."]),
+    (["Enjoy perfect furniture", "Nauti valmiista huonekaluista", "Njut av perfekta möbler"], ["Relax while we work. Perfect assembly guaranteed or your money back.", "Rentoudu kun me teemme työt. Täydellinen lopputulos tai rahat takaisin.", "Koppla av medan vi jobbar. Perfekt montering eller pengarna tillbaka."]),
+]
+
+TIMELINE = [  # (side, time, (en, fi, sv) text)
+    ("diy", "9:00", ["Start reading confusing instructions", "Sekavien ohjeiden lukeminen alkaa", "Börjar läsa förvirrande instruktioner"]),
+    ("diy", "10:30", ["Drive to the hardware store for missing tools", "Ajo rautakauppaan puuttuvien työkalujen takia", "Åker till järnhandeln efter verktyg"]),
+    ("diy", "12:00", ["Argument with partner about step 47", "Riita kumppanin kanssa vaiheesta 47", "Gräl med partnern om steg 47"]),
+    ("diy", "15:00", ["Realise you built it backwards", "Huomaat kasanneesi sen väärin päin", "Inser att den är byggd bakvänt"]),
+    ("diy", "18:00", ["Weekend gone, furniture still wonky", "Viikonloppu meni, huonekalu edelleen vino", "Helgen är slut, möbeln fortfarande sned"]),
+    ("us", "9:00", ["Coffee and breakfast with family", "Kahvi ja aamiainen perheen kanssa", "Kaffe och frukost med familjen"]),
+    ("us", "10:00", ["SISUSETH team arrives and works", "SISUSETHin tiimi saapuu ja tekee työt", "SISUSETH-teamet kommer och jobbar"]),
+    ("us", "12:00", ["Lunch at your favourite restaurant", "Lounas lempiravintolassa", "Lunch på din favoritrestaurang"]),
+    ("us", "14:00", ["Perfect furniture ready to enjoy", "Täydelliset huonekalut valmiina", "Perfekta möbler klara att använda"]),
+    ("us", "15:00", ["Rest of the weekend for what matters", "Loppu viikonloppu tärkeille asioille", "Resten av helgen för det som betyder något"]),
+]
+
+
 def tri(prefix, values):
     return {f"{prefix}_{lang}": v for lang, v in zip(("en", "fi", "sv"), values)}
 
 
-class Command(BaseCommand):
-    help = "Seed the database with the prototype content (only fills empty tables)."
+def load_image(field, path):
+    with open(path, "rb") as f:
+        field.save(path.name, File(f), save=False)
 
-    def handle(self, *args, **options):
-        cfg, created = SiteSettings.objects.get_or_create(pk=1, defaults={
+
+def seed_packages():
+    for i, (names, descs, price, hours, bonus, popular) in enumerate(PACKAGES):
+        PricingPackage.objects.create(order=i, price_eur=price, estimated_hours=hours, referral_bonus_eur=bonus,
+                                      is_popular=popular, **tri("name", names), **tri("description", descs))
+
+
+def seed_calculator():
+    for i, (labels, price, hourly) in enumerate(CALCULATOR):
+        CalculatorOption.objects.create(order=i, price_eur=price, is_hourly=hourly, **tri("label", labels))
+
+
+def seed_faq():
+    for i, (qs, ans) in enumerate(FAQS):
+        FAQ.objects.create(order=i, **tri("question", qs), **tri("answer", ans))
+
+
+def seed_testimonials():
+    for i, (author, city, quote) in enumerate(TESTIMONIALS):
+        Testimonial.objects.create(order=i, author=author, city=city, quote_en=quote)
+
+
+def seed_gallery():
+    for i, path in enumerate(sorted((SEED_IMAGES / "gallery").glob("*.jpg"))):
+        photo = GalleryImage(order=i)
+        load_image(photo.image, path)
+        photo.save()
+
+
+def seed_products():
+    Product.objects.bulk_create(Product(brand=b, name=n, price_eur=p, minutes=m) for b, n, p, m in PRODUCTS)
+
+
+def seed_pains():
+    for i, (icon, titles, texts) in enumerate(PAINS):
+        PainPoint.objects.create(order=i, icon=icon, **tri("title", titles), **tri("text", texts))
+
+
+def seed_steps():
+    for i, (titles, texts) in enumerate(STEPS):
+        Step.objects.create(order=i, **tri("title", titles), **tri("text", texts))
+
+
+def seed_timeline():
+    for i, (side, time, texts) in enumerate(TIMELINE):
+        TimelineEntry.objects.create(order=i, side=side, time=time, **tri("text", texts))
+
+
+def seed_site_images():
+    cfg = SiteSettings.load()
+    for field, filename in (("logo", "logo.jpeg"), ("hero_image", "hero.jpg")):
+        if not getattr(cfg, field):  # never replace an image the owner uploaded
+            load_image(getattr(cfg, field), SEED_IMAGES / filename)
+    cfg.save()
+
+
+# section name → (loader, model whose existing rows mean "already has content")
+SECTIONS = {
+    "site_images": (seed_site_images, None),
+    "packages": (seed_packages, PricingPackage),
+    "calculator": (seed_calculator, CalculatorOption),
+    "faq": (seed_faq, FAQ),
+    "testimonials": (seed_testimonials, Testimonial),
+    "gallery": (seed_gallery, GalleryImage),
+    "products": (seed_products, Product),
+    "pains": (seed_pains, PainPoint),
+    "steps": (seed_steps, Step),
+    "timeline": (seed_timeline, TimelineEntry),
+}
+
+
+class Command(BaseCommand):
+    help = "Load starting content once per section and sync UI text keys (safe on every deploy)."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--reset", nargs="+", metavar="SECTION", choices=list(SECTIONS),
+                            help="Delete a section's current content and load the starting content again.")
+
+    @transaction.atomic
+    def handle(self, *args, reset=None, **options):
+        cfg, _ = SiteSettings.objects.get_or_create(pk=1, defaults={
             "instagram_url": "https://www.instagram.com/sisu_seth",
             "tiktok_url": "https://www.tiktok.com/@sisu.set",
             "facebook_url": "https://www.facebook.com/share/1B33mnzcYo/",
         })
-        if created:
-            for field, filename in (("logo", "logo.jpeg"), ("hero_image", "hero.jpg")):
-                with open(SEED_IMAGES / filename, "rb") as f:
-                    getattr(cfg, field).save(filename, File(f), save=False)
-            cfg.save()
+        done = set(cfg.seeded_sections)
+        for name in reset or []:
+            if (model := SECTIONS[name][1]) is not None:
+                model.objects.all().delete()
+            done.discard(name)
 
-        if not PricingPackage.objects.exists():
-            for i, (names, descs, price, hours, bonus, popular) in enumerate(PACKAGES):
-                PricingPackage.objects.create(order=i, price_eur=price, estimated_hours=hours, referral_bonus_eur=bonus,
-                                              is_popular=popular, **tri("name", names), **tri("description", descs))
-        if not Product.objects.exists():
-            Product.objects.bulk_create(Product(brand=b, name=n, price_eur=p, minutes=m) for b, n, p, m in PRODUCTS)
-        if not CalculatorOption.objects.exists():
-            for i, (labels, price, hourly) in enumerate(CALCULATOR):
-                CalculatorOption.objects.create(order=i, price_eur=price, is_hourly=hourly, **tri("label", labels))
-        if not FAQ.objects.exists():
-            for i, (qs, ans) in enumerate(FAQS):
-                FAQ.objects.create(order=i, **tri("question", qs), **tri("answer", ans))
-        if not Testimonial.objects.exists():
-            for i, (author, city, quote) in enumerate(TESTIMONIALS):
-                Testimonial.objects.create(order=i, author=author, city=city, quote_en=quote)
-        if not GalleryImage.objects.exists():
-            for i, path in enumerate(sorted((SEED_IMAGES / "gallery").glob("*.jpg"))):
-                with open(path, "rb") as f:
-                    photo = GalleryImage(order=i)
-                    photo.image.save(path.name, File(f), save=False)
-                    photo.save()
+        loaded = []
+        for name, (loader, model) in SECTIONS.items():
+            if name in done:
+                continue
+            if model is None or not model.objects.exists():  # never mix starting content into real content
+                loader()
+                loaded.append(name)
+            done.add(name)
+        SiteSettings.objects.filter(pk=1).update(seeded_sections=sorted(done))
 
-        # Every UI text becomes editable in the CMS, pre-filled with the bundled translations.
+        added, removed = self.sync_text_blocks()
+        self.stdout.write(self.style.SUCCESS(
+            f"Loaded: {', '.join(loaded) or 'nothing new'}. Text blocks: {added} added, {removed} removed."))
+
+    def sync_text_blocks(self):
         locales = {lang: json.loads((LOCALES_DIR / f"{lang}.json").read_text()) for lang in ("en", "fi", "sv")}
-        created = 0
+        added = 0
         for key in locales["en"]:
-            _, was_created = TextBlock.objects.get_or_create(
+            _, created = TextBlock.objects.get_or_create(
                 key=key, defaults={f"value_{lang}": locales[lang].get(key, "") for lang in locales}
                 | {"note": key.split(".")[0].capitalize() + " section"},
             )
-            created += was_created
-        self.stdout.write(self.style.SUCCESS(f"Seeded content ({created} new text blocks)."))
+            added += created
+        removed, _ = TextBlock.objects.exclude(key__in=locales["en"]).delete()
+        return added, removed

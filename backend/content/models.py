@@ -125,7 +125,6 @@ class BookingRequest(models.Model):
     furniture = models.TextField()
     preferred_date = models.DateField(null=True, blank=True)
     language = models.CharField(max_length=2, default="fi")
-    referral_code = models.CharField(max_length=20, blank=True)
     status = models.CharField(max_length=10, choices=STATUS, default="new")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -149,9 +148,7 @@ FEATURES = [
     ("timeline_animation", "Animated DIY vs SISUSETH timeline", True),
     ("quiz", "'How long would it take you?' quiz", True),
     ("hero_animation", "Flat-pack box animation in the hero", True),
-    ("google_reviews", "Google reviews (needs GOOGLE_PLACES_API_KEY + place ID)", False),
     ("tax_credit", "Household tax credit (kotitalousvähennys) calculator", True),
-    ("referrals", "Referral codes", True),
 ]
 
 
@@ -183,17 +180,15 @@ class SiteSettings(models.Model):
     quiz_average_multiplier = models.DecimalField(max_digits=3, decimal_places=1, default=2.5)
     quiz_handy_multiplier = models.DecimalField(max_digits=3, decimal_places=1, default=1.5)
 
-    # Google reviews
-    google_place_id = models.CharField(max_length=200, blank=True, help_text="From Google's Place ID Finder")
-
     # Kotitalousvähennys (Finnish household tax credit). Check vero.fi every year.
     tax_credit_rate_percent = models.PositiveSmallIntegerField(default=35)
     tax_credit_labour_percent = models.PositiveSmallIntegerField(default=100, help_text="Share of the price that is labour")
     tax_credit_deductible_eur = models.PositiveIntegerField(default=150, help_text="Yearly own-liability per person")
     tax_credit_max_eur = models.PositiveIntegerField(default=1600, help_text="Yearly maximum per person")
 
-    # Referrals
-    referral_discount_eur = models.PositiveIntegerField(default=10, help_text="Discount for the friend who books with a code")
+    # Sections whose starting content was already loaded by `seed`. Once loaded, a section is never
+    # re-filled, so anything the owner deletes stays deleted after future deploys.
+    seeded_sections = models.JSONField(default=list, blank=True, editable=False)
 
     class Meta:
         verbose_name = verbose_name_plural = "Site settings"
@@ -273,18 +268,50 @@ for _lang in LANGS:
     Video._meta.get_field(f"caption_{_lang}").blank = True
 
 
-class Referral(models.Model):
-    code = models.CharField(max_length=20, unique=True)
-    name = models.CharField(max_length=100)
-    phone = models.CharField(max_length=30)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+class PainPoint(Translatable, Ordered):
+    """'Select your assembly frustrations' cards."""
 
-    class Meta:
-        ordering = ["-created_at"]
+    icon = models.CharField(max_length=8, blank=True, help_text="Optional emoji, e.g. 🔧")
+
+    class Meta(Ordered.Meta):
+        verbose_name = "Frustration card"
 
     def __str__(self):
-        return f"{self.code} ({self.name})"
+        return self.title_en
+
+
+_add(PainPoint, "title", models.CharField, max_length=100)
+_add(PainPoint, "text", models.CharField, max_length=200)
+
+
+class Step(Translatable, Ordered):
+    """'How it works' steps. Numbered automatically in display order."""
+
+    def __str__(self):
+        return self.title_en
+
+
+_add(Step, "title", models.CharField, max_length=100)
+_add(Step, "text", models.CharField, max_length=250)
+
+
+class TimelineEntry(Translatable, Ordered):
+    """One row of the 'Your weekend: DIY vs SISUSETH' comparison."""
+
+    SIDES = [("diy", "DIY weekend"), ("us", "SISUSETH weekend")]
+    side = models.CharField(max_length=3, choices=SIDES)
+    time = models.CharField(max_length=10, help_text="e.g. 10:30")
+
+    class Meta(Ordered.Meta):
+        verbose_name = "Weekend timeline row"
+        verbose_name_plural = "Weekend timeline rows"
+        ordering = ["side", "order", "id"]
+
+    def __str__(self):
+        return f"{self.get_side_display()} {self.time} – {self.text_en}"
+
+
+_add(TimelineEntry, "text", models.CharField, max_length=200)
 
 
 class TextBlock(Translatable):

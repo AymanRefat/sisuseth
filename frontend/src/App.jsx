@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { LANGUAGES, useI18n } from "./i18n.jsx";
 import BeforeAfter from "./features/BeforeAfter.jsx";
-import GoogleReviews from "./features/GoogleReviews.jsx";
 import HeroAnimation from "./features/HeroAnimation.jsx";
 import HoursCounter from "./features/HoursCounter.jsx";
 import MobileBar from "./features/MobileBar.jsx";
@@ -9,8 +8,9 @@ import ProductSearch from "./features/ProductSearch.jsx";
 import Quiz from "./features/Quiz.jsx";
 import TaxCredit from "./features/TaxCredit.jsx";
 import VideoStrip from "./features/VideoStrip.jsx";
-import { ReferralBanner, ReferralSection, useReferral } from "./features/referral.jsx";
 import { useInView } from "./features/utils.js";
+import Carousel from "./components/Carousel.jsx";
+import PhotoGallery from "./components/Gallery.jsx";
 
 const DEFAULT_SETTINGS = {
   phone: "+358 40 871 3636", whatsapp: "358408713636", email: "info@sisuseth.com",
@@ -18,9 +18,8 @@ const DEFAULT_SETTINGS = {
   additionalItem: 45, brands: ["IKEA", "JYSK", "Sotka", "ISKU", "Treetale", "Kodin1"], logo: "", heroImage: "",
   // Optional features (docs/FEATURES.md). All off until the CMS says otherwise.
   features: {}, hoursSaved: 0, quiz: { beginner: 4, average: 2.5, handy: 1.5 },
-  taxCredit: { rate: 35, labour: 100, deductible: 150, max: 1600 }, referralDiscount: 10,
+  taxCredit: { rate: 35, labour: 100, deductible: 150, max: 1600 },
 };
-const PAINS = ["tools", "time", "instructions", "damage", "space", "stress"];
 
 const waLink = (number, text) => `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
 // Telegram prefills the message on recent apps; older ones just open the chat.
@@ -28,8 +27,7 @@ const tgLink = (username, text) => `https://t.me/${username}?text=${encodeURICom
 
 function BookButtons({ s, text, label, compact = false }) {
   const { t } = useI18n();
-  const { code } = useReferral();
-  const message = (text ?? t("wa.default")) + (code && s.features.referrals ? t("wa.referral", { code }) : "");
+  const message = text ?? t("wa.default");
   const cls = compact ? "btn btn-sm" : "btn";
   return (
     <span className="book-buttons">
@@ -62,7 +60,6 @@ export default function App() {
         <section className="hero">
           <div className="container hero-grid">
             <div>
-            {f.referrals && <ReferralBanner discount={s.referralDiscount} />}
             <p className="eyebrow">{t("hero.eyebrow")}</p>
             <h1>{t("hero.title")}</h1>
             <p className="lead">{t("hero.subtitle", { areas })}</p>
@@ -82,22 +79,17 @@ export default function App() {
           </div>
         </section>
 
-        <Pains />
-        <Gallery images={content?.gallery ?? []} s={s} areas={areas} />
+        <Pains items={content?.pains ?? []} />
+        <Gallery total={content?.galleryCount ?? 0} s={s} areas={areas} />
         {f.before_after && <BeforeAfter items={content?.beforeAfter ?? []} />}
         {f.videos && <VideoStrip videos={content?.videos ?? []} />}
-        <Steps>{f.hours_counter && <HoursCounter hours={s.hoursSaved} areas={areas} />}</Steps>
-        <Compare animate={f.timeline_animation} />
+        <Steps items={content?.steps ?? []}>{f.hours_counter && <HoursCounter hours={s.hoursSaved} areas={areas} />}</Steps>
+        <Compare rows={content?.timeline ?? []} animate={f.timeline_animation} />
         {f.quiz && <Quiz products={content?.products ?? []} multipliers={s.quiz} BookButtons={BookButtons} settings={s} />}
-        <Reviews items={content?.testimonials ?? []} count={s.happyCustomers} brands={s.brands}>
-          {f.google_reviews && <GoogleReviews />}
-        </Reviews>
+        <Reviews items={content?.testimonials ?? []} count={s.happyCustomers} brands={s.brands} />
         <Pricing content={content} settings={s} />
         <Faq items={content?.faq ?? []} />
-        {f.referrals && (
-          <ReferralSection discount={s.referralDiscount} whatsappShare={(text) => `https://wa.me/?text=${encodeURIComponent(text)}`} />
-        )}
-        <BookingForm referrals={f.referrals} />
+        <BookingForm />
 
         <section className="cta">
           <div className="container center">
@@ -144,7 +136,7 @@ function Header({ s }) {
   );
 }
 
-function Pains() {
+function Pains({ items }) {
   const { t } = useI18n();
   const [picked, setPicked] = useState([]);
   const toggle = (p) => setPicked((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -155,10 +147,10 @@ function Pains() {
         <p className="center muted">{t("pain.subtitle")}</p>
         <p className="center"><strong>{t("pain.pick")}</strong></p>
         <div className="grid grid-3">
-          {PAINS.map((p) => (
-            <button key={p} className={`card pain ${picked.includes(p) ? "picked" : ""}`} onClick={() => toggle(p)}>
-              <strong>{t(`pain.${p}.title`)}</strong>
-              <span>{t(`pain.${p}.text`)}</span>
+          {items.map((p) => (
+            <button key={p.id} className={`card pain ${picked.includes(p.id) ? "picked" : ""}`} onClick={() => toggle(p.id)}>
+              <strong>{p.icon} {p.title}</strong>
+              <span>{p.text}</span>
             </button>
           ))}
         </div>
@@ -168,25 +160,22 @@ function Pains() {
   );
 }
 
-function Gallery({ images, s, areas }) {
+function Gallery({ total, s, areas }) {
   const { t } = useI18n();
   return (
     <section id="gallery" className="section alt">
       <div className="container">
         <h2 className="center">{t("gallery.title")}</h2>
         <p className="center muted">{t("gallery.subtitle", { areas })}</p>
-        <div className="gallery">
-          {images.map((img) => <img key={img.id} src={img.src} alt={img.caption} loading="lazy" />)}
-        </div>
-        <div className="actions center">
+        <PhotoGallery total={total}>
           <BookButtons s={s} label={t("gallery.cta")} />
-        </div>
+        </PhotoGallery>
       </div>
     </section>
   );
 }
 
-function Steps({ children }) {
+function Steps({ items, children }) {
   const { t } = useI18n();
   return (
     <section className="section">
@@ -194,11 +183,11 @@ function Steps({ children }) {
         <h2 className="center">{t("steps.title")}</h2>
         <p className="center muted">{t("steps.subtitle")}</p>
         <div className="grid grid-3">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="card">
-              <div className="step-num">{n}</div>
-              <h3>{t(`steps.${n}.title`)}</h3>
-              <p>{t(`steps.${n}.text`)}</p>
+          {items.map((step, i) => (
+            <div key={step.id} className="card">
+              <div className="step-num">{i + 1}</div>
+              <h3>{step.title}</h3>
+              <p>{step.text}</p>
             </div>
           ))}
         </div>
@@ -208,14 +197,14 @@ function Steps({ children }) {
   );
 }
 
-function Compare({ animate }) {
+function Compare({ rows, animate }) {
   const { t } = useI18n();
   const [ref, inView] = useInView();
   const col = (key, icon, cls) => (
     <div className={`card compare ${cls} ${animate ? "animated" : ""} ${animate && inView ? "play" : ""}`}>
       <h3>{icon} {t(`compare.${key}`)}</h3>
       <ul>
-        {[1, 2, 3, 4, 5].map((n) => <li key={n}><b>{t(`compare.${key}.${n}.time`)}</b> {t(`compare.${key}.${n}`)}</li>)}
+        {rows.filter((r) => r.side === key).map((r) => <li key={r.id}><b>{r.time}</b> {r.text}</li>)}
       </ul>
     </div>
   );
@@ -232,22 +221,21 @@ function Compare({ animate }) {
   );
 }
 
-function Reviews({ items, count, brands, children }) {
+function Reviews({ items, count, brands }) {
   const { t } = useI18n();
   return (
     <section id="reviews" className="section">
       <div className="container">
         <h2 className="center">{t("reviews.title", { count })}</h2>
         <p className="center muted">{t("reviews.subtitle")}</p>
-        <div className="grid grid-3">
+        <Carousel className="reviews" autoPlayMs={7000} label={t("reviews.title", { count })}>
           {items.map((r) => (
             <figure key={r.id} className="card review">
               <blockquote>“{r.quote}”</blockquote>
               <figcaption><strong>{r.author}</strong> · {r.city}</figcaption>
             </figure>
           ))}
-        </div>
-        {children}
+        </Carousel>
         <p className="center muted brands">{t("brands.title")} {brands.join(" · ")}</p>
       </div>
     </section>
@@ -337,9 +325,8 @@ function Faq({ items }) {
   );
 }
 
-function BookingForm({ referrals }) {
+function BookingForm() {
   const { t, lang } = useI18n();
-  const { code } = useReferral();
   const [status, setStatus] = useState("idle");
 
   const submit = async (e) => {
@@ -371,11 +358,6 @@ function BookingForm({ referrals }) {
             <label>{t("booking.phone")}<input name="phone" type="tel" required maxLength={30} /></label>
             <label>{t("booking.city")}<input name="city" maxLength={50} /></label>
             <label>{t("booking.date")}<input name="preferred_date" type="date" /></label>
-            {referrals && (
-              <label className="full">{t("booking.referral")}
-                <input name="referral_code" defaultValue={code} maxLength={20} style={{ textTransform: "uppercase" }} />
-              </label>
-            )}
             <label className="full">{t("booking.furniture")}<textarea name="furniture" required rows={3} /></label>
             {status === "error" && <p className="error full">{t("booking.error")}</p>}
             <button className="btn full" disabled={status === "sending"}>

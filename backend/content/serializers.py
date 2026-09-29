@@ -1,8 +1,8 @@
 from rest_framework import serializers
 
 from .models import (
-    FAQ, LANGS, BeforeAfter, BookingRequest, CalculatorOption, GalleryImage, PricingPackage, Product, Referral,
-    SiteSettings, Testimonial, Video,
+    FAQ, LANGS, BeforeAfter, BookingRequest, CalculatorOption, GalleryImage, PainPoint, PricingPackage, Product,
+    SiteSettings, Step, Testimonial, TimelineEntry, Video,
 )
 
 
@@ -65,6 +65,32 @@ class FAQSerializer(serializers.ModelSerializer):
         fields = ["id", "q", "a"]
 
 
+class PainPointSerializer(serializers.ModelSerializer):
+    title = TranslatedField("title")
+    text = TranslatedField("text")
+
+    class Meta:
+        model = PainPoint
+        fields = ["id", "icon", "title", "text"]
+
+
+class StepSerializer(serializers.ModelSerializer):
+    title = TranslatedField("title")
+    text = TranslatedField("text")
+
+    class Meta:
+        model = Step
+        fields = ["id", "title", "text"]
+
+
+class TimelineEntrySerializer(serializers.ModelSerializer):
+    text = TranslatedField("text")
+
+    class Meta:
+        model = TimelineEntry
+        fields = ["id", "side", "time", "text"]
+
+
 class GalleryImageSerializer(serializers.ModelSerializer):
     src = FileUrlField(source="image")
 
@@ -123,14 +149,13 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     hoursSaved = serializers.SerializerMethodField()
     quiz = serializers.SerializerMethodField()
     taxCredit = serializers.SerializerMethodField()
-    referralDiscount = serializers.IntegerField(source="referral_discount_eur")
 
     class Meta:
         model = SiteSettings
         fields = [
             "phone", "whatsapp", "telegram", "email", "instagram", "tiktok", "facebook", "areas", "brands",
             "happyCustomers", "startingPrice", "hourlyRate", "additionalItem", "logo", "heroImage", "features",
-            "hoursSaved", "quiz", "taxCredit", "referralDiscount",
+            "hoursSaved", "quiz", "taxCredit",
         ]
 
     def get_telegram(self, obj):
@@ -160,20 +185,6 @@ class BookingRequestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BookingRequest
-        fields = ["id", "name", "phone", "city", "furniture", "preferred_date", "language", "referral_code"]
+        fields = ["id", "name", "phone", "city", "furniture", "preferred_date", "language"]
         read_only_fields = ["id"]
 
-    def validate_referral_code(self, value):
-        return value.strip().upper()
-
-
-class ReferralSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Referral
-        fields = ["code", "name", "phone"]
-        read_only_fields = ["code"]
-
-    def validate_phone(self, value):
-        if len([c for c in value if c.isdigit()]) < 6:
-            raise serializers.ValidationError("Enter a valid phone number.")
-        return value.strip()

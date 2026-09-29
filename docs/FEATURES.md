@@ -4,6 +4,8 @@ Each feature below can be turned on or off without touching code:
 
 **CMS → Site settings → "Features – turn website sections on/off"** → tick or untick → **Save**.
 
+> Google reviews and referral codes were removed for now. They were built and tested in commit `5442d05`, so they can be restored from git history if wanted.
+
 The change is live on the next page load. Turning a feature off only hides it. Its content (products, photos, codes) stays in the database, so turning it back on restores everything.
 
 | # | Feature | Flag (`feature_…`) | Default | Needs content? |
@@ -16,9 +18,7 @@ The change is live on the next page load. Turning a feature off only hides it. I
 | 6 | [Animated weekend timeline](#6-animated-weekend-timeline) | `timeline_animation` | on | – |
 | 7 | ["How long would it take you?" quiz](#7-how-long-would-it-take-you-quiz) | `quiz` | on | Products |
 | 8 | [Hero box animation](#8-hero-box-animation) | `hero_animation` | on | – |
-| 9 | [Google reviews](#9-google-reviews) | `google_reviews` | **off** | API key + Place ID |
-| 10 | [Household tax credit calculator](#10-household-tax-credit-calculator-kotitalousvähennys) | `tax_credit` | on | – |
-| 11 | [Referral codes](#11-referral-codes) | `referrals` | on | – |
+| 9 | [Household tax credit calculator](#9-household-tax-credit-calculator-kotitalousvähennys) | `tax_credit` | on | – |
 
 If a feature is **on but has no content**, for example no before/after photos yet, the section is hidden automatically. It never shows up empty.
 
@@ -42,7 +42,7 @@ On screens narrower than 820 px, a bar stays fixed at the bottom with **WhatsApp
 - **Code:** `frontend/src/features/MobileBar.jsx`
 
 ## 3. Before/after slider
-One slider per pair of photos. Dragging it reveals the finished furniture over the pile of boxes.
+One slider per pair of photos, shown in a carousel (2 per page on desktop, 1 on phones). Dragging a slider reveals the finished furniture over the pile of boxes.
 
 - **CMS:** *Before/after photos*. Upload a **before** photo, an **after** photo and an optional caption in EN/FI/SV, then set the order. Take both photos **from the same spot**, otherwise the effect doesn't work. Images are resized to 1600 px on upload.
 - **Starting data:** none, because we don't have real before photos. The section stays hidden until the first pair is uploaded.
@@ -69,7 +69,7 @@ A big number that counts up when the visitor scrolls to it, for example **"1 240
 ## 6. Animated weekend timeline
 The "DIY vs SISUSETH" comparison plays out when scrolled into view. Each row appears one after another, the DIY rows from midday on turn red and shake, and the SISUSETH card glows green. With the flag off, the timeline is shown without animation.
 
-- **CMS:** the times and texts are text blocks (`compare.*`, for example `compare.diy.3.time`).
+- **CMS:** *Weekend timeline rows*. Add, remove or reorder rows for each side (time + text in EN/FI/SV).
 - Visitors whose system asks for reduced motion get no animation.
 - **Code:** `Compare` in `frontend/src/App.jsx` and the "animated timeline" CSS in `frontend/src/index.css`
 
@@ -87,23 +87,7 @@ A small card on the hero image where a flat-pack box opens, a shelf builds itsel
 - **Texts:** `hero.animLabel`, a description for screen readers.
 - **Code:** `frontend/src/features/HeroAnimation.jsx` and the "hero animation" CSS in `index.css`
 
-## 9. Google reviews
-Shows the Google rating, for example *"4.9 ★ from 87 Google reviews"*, up to 5 of the latest reviews and a "See all reviews on Google" link, above the testimonials section.
-
-**Setup (one time):**
-1. The business needs a **Google Business Profile** with reviews.
-2. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable **Places API (New)**. Create an **API key** and restrict it to that API. Google requires a billing account, but this usage stays far inside the free monthly allowance: results are cached for 6 hours, so it makes at most about 12 requests a day.
-3. Put the key on the server as `GOOGLE_PLACES_API_KEY` in `.env`, then restart.
-4. Find the Place ID with Google's [Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id) and paste it into *CMS → Site settings → Google reviews*.
-5. Tick `feature_google_reviews`.
-
-If the key, the Place ID or Google itself is unavailable, the section simply doesn't appear. Reviews come in the visitor's language where Google has a translation.
-
-- **Recommendation:** once this works, turn off or delete the placeholder *Testimonials* copied from the prototype. They look invented, and showing invented reviews as real ones is illegal under EU consumer law.
-- **Texts:** `google.*`
-- **Code:** `frontend/src/features/GoogleReviews.jsx`, `backend/content/services.py → fetch_google_reviews`
-
-## 10. Household tax credit calculator (kotitalousvähennys)
+## 9. Household tax credit calculator (kotitalousvähennys)
 Placed under the price calculator. It shows the job price, the tax credit and the "real cost". It starts from the calculator's current estimate, and the visitor can type any price.
 
 - **Formula:** `credit = price × labour share × rate`, capped at the yearly maximum. Example: €85 × 100 % × 35 % = €29.75 credit, so the real cost is €55.25.
@@ -114,22 +98,6 @@ Placed under the price calculator. It shows the job price, the tax credit and th
   - If materials or travel are billed, lower the *labour share* so the estimate stays honest.
 - **Texts:** `tax.*`
 - **Code:** `frontend/src/features/TaxCredit.jsx`
-
-## 11. Referral codes
-1. On the website, a customer enters their name and phone number under **"Invite a friend"** and gets a personal code (for example `MIKA482`) plus a share link `https://sisuseth.com/?ref=MIKA482`, which they can copy or share on WhatsApp. The same phone number always gets the same code.
-2. When a friend opens the link, the code is checked, remembered in their browser, and a banner shows *"Code MIKA482 applied – €10 off your booking!"*.
-3. The code is then added **automatically** to every WhatsApp/Telegram booking message and is pre-filled in the booking form. Customers can also type a code into the form by hand.
-4. The Telegram alert for a new booking includes the code.
-
-- **CMS:**
-  - *Referrals*: all codes with the number of bookings made with each one, and the option to deactivate a code.
-  - *Booking requests*: has a `referral code` column and search.
-  - *Site settings → Referrals → discount*: the "€10" shown to the friend.
-  - The referrer's reward is shown on the pricing packages ("€10 referral bonus"; *Pricing packages → referral bonus*).
-- **The owner applies the discount and pays the reward by hand.** The website doesn't handle money. It only records who referred whom.
-- **Spam protection:** each visitor can submit at most 20 forms per hour (bookings and codes).
-- **Texts:** `ref.*`, `booking.referral`, `wa.referral`
-- **Code:** `frontend/src/features/referral.jsx`, `backend/content/views.py → create_referral / check_referral`
 
 ---
 
