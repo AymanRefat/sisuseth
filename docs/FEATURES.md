@@ -11,7 +11,7 @@ The change is live on the next page load. Turning a feature off only hides it. I
 | # | Feature | Flag (`feature_…`) | Default | Needs content? |
 |---|---|---|---|---|
 | 1 | [Product price search](#1-product-price-search) | `product_search` | on | Products (18 seeded) |
-| 2 | [Sticky mobile booking bar](#2-sticky-mobile-booking-bar) | `mobile_bar` | on | – |
+| 2 | [Floating contact button](#2-floating-contact-button) | `mobile_bar` | on | – |
 | 3 | [Before/after slider](#3-beforeafter-slider) | `before_after` | on | Before/after photos (**none seeded**) |
 | 4 | [Video strip](#4-video-strip) | `videos` | on | Videos (**none seeded**) |
 | 5 | [Weekend-hours counter](#5-weekend-hours-counter) | `hours_counter` | on | – |
@@ -34,12 +34,12 @@ A search box at the top of the pricing section. The customer types "PAX", "MALM"
 - **Texts:** `search.*`, `wa.product`
 - **Code:** `frontend/src/features/ProductSearch.jsx`
 
-## 2. Sticky mobile booking bar
-On screens narrower than 820 px, a bar stays fixed at the bottom with **WhatsApp**, **Telegram** (only if a Telegram username is set) and **📞 Call** buttons. It is hidden on desktop.
+## 2. Floating contact button
+A round orange chat button in the bottom-right corner, on every screen size. Tapping it pops up **WhatsApp**, **Telegram** (only if a Telegram username is set) and **Call +358…**, one after another. Tapping outside, pressing Esc or choosing an option closes it. A few seconds after the page loads, a small hint ("Book in 30 seconds 👋") appears next to it once. While this is on, phones hide the duplicate booking buttons in the header.
 
-- **CMS:** uses *Site settings → Contact*.
-- **Texts:** `bar.call`, `wa.default`
-- **Code:** `frontend/src/features/MobileBar.jsx`
+- **CMS:** uses *Site settings → Contact*. The flag is still called `mobile_bar` so existing settings keep working.
+- **Texts:** `fab.open`, `fab.hint`, `bar.call`, `wa.default`
+- **Code:** `frontend/src/features/ContactFab.jsx`
 
 ## 3. Before/after slider
 One slider per pair of photos, shown in a carousel (2 per page on desktop, 1 on phones). Dragging a slider reveals the finished furniture over the pile of boxes.

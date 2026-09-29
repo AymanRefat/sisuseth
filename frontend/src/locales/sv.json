@@ -5,7 +5,7 @@
   "nav.contact": "Kontakt",
   "nav.book": "Boka nu",
   "hero.eyebrow": "Möblerna fortfarande i kartonger?",
-  "hero.title": "Slösa inte bort din helg!",
+  "hero.title": "Slösa inte bort din *helg*!",
   "hero.subtitle": "Professionell montering medan du njuter av livet – garanterat perfekt resultat i {areas}.",
   "hero.cta": "Boka montering",
   "hero.secondary": "Se vårt arbete",
@@ -103,5 +103,9 @@
   "ui.next": "Nästa",
   "ui.close": "Stäng",
   "ui.open": "Öppna bild",
-  "ui.showMore": "Visa fler bilder"
+  "ui.showMore": "Visa fler bilder",
+  "hero.floatA": "Service redan i morgon",
+  "hero.floatB": "100 % nöjdhetsgaranti",
+  "fab.open": "Kontakta oss",
+  "fab.hint": "Boka på 30 sekunder 👋"
 }

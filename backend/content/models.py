@@ -141,7 +141,7 @@ class BookingRequest(models.Model):
 FEATURES = [
     # (key, label, default)
     ("product_search", "Product price search (e.g. 'PAX' → price)", True),
-    ("mobile_bar", "Sticky booking bar on phones", True),
+    ("mobile_bar", "Floating contact button (WhatsApp / Telegram / Call)", True),
     ("before_after", "Before/after photo slider", True),
     ("videos", "Video strip (short clips)", True),
     ("hours_counter", "'Weekend hours saved' counter", True),

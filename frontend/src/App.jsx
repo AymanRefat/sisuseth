@@ -3,13 +3,16 @@ import { LANGUAGES, useI18n } from "./i18n.jsx";
 import BeforeAfter from "./features/BeforeAfter.jsx";
 import HeroAnimation from "./features/HeroAnimation.jsx";
 import HoursCounter from "./features/HoursCounter.jsx";
-import MobileBar from "./features/MobileBar.jsx";
+import ContactFab from "./features/ContactFab.jsx";
 import ProductSearch from "./features/ProductSearch.jsx";
 import Quiz from "./features/Quiz.jsx";
 import TaxCredit from "./features/TaxCredit.jsx";
 import VideoStrip from "./features/VideoStrip.jsx";
 import { useInView } from "./features/utils.js";
 import Carousel from "./components/Carousel.jsx";
+import ScrollTape from "./components/ScrollTape.jsx";
+import { Chair, Lamp, Plant, Screw, Scribble, Shelf } from "./components/Illustrations.jsx";
+import { useAutoReveal, useScroll } from "./components/motion.js";
 import PhotoGallery from "./components/Gallery.jsx";
 
 const DEFAULT_SETTINGS = {
@@ -46,6 +49,7 @@ export default function App() {
   const s = { ...DEFAULT_SETTINGS, ...content?.settings };
   const areas = s.areas.join(", ");
   const f = s.features;
+  useAutoReveal();
 
   // The logo doubles as the favicon, so a new logo in the CMS updates the browser tab icon too.
   useEffect(() => {
@@ -57,27 +61,7 @@ export default function App() {
     <>
       <Header s={s} />
       <main>
-        <section className="hero">
-          <div className="container hero-grid">
-            <div>
-            <p className="eyebrow">{t("hero.eyebrow")}</p>
-            <h1>{t("hero.title")}</h1>
-            <p className="lead">{t("hero.subtitle", { areas })}</p>
-            <div className="actions">
-              <BookButtons s={s} label={t("hero.cta")} />
-              <a className="btn btn-ghost" href="#gallery">{t("hero.secondary")}</a>
-            </div>
-            <div className="badges">
-              <span>⭐ {t("hero.badge", { count: s.happyCustomers })}</span>
-              <span>💶 {t("hero.from", { price: s.startingPrice })}</span>
-            </div>
-            </div>
-            <div className="hero-visual">
-              {s.heroImage && <img className="hero-img" src={s.heroImage} alt="" />}
-              {f.hero_animation && <HeroAnimation />}
-            </div>
-          </div>
-        </section>
+        <Hero s={s} areas={areas} showBoxAnimation={f.hero_animation} />
 
         <Pains items={content?.pains ?? []} />
         <Gallery total={content?.galleryCount ?? 0} s={s} areas={areas} />
@@ -92,6 +76,8 @@ export default function App() {
         <BookingForm />
 
         <section className="cta">
+          <Chair className="cta-deco cta-chair" />
+          <Shelf className="cta-deco cta-shelf" />
           <div className="container center">
             <h2>{t("cta.title")}</h2>
             <p>{t("cta.subtitle")}</p>
@@ -105,16 +91,74 @@ export default function App() {
       </main>
       <Footer s={s} />
       {f.mobile_bar && (
-        <MobileBar settings={s} whatsapp={waLink(s.whatsapp, t("wa.default"))} telegram={tgLink(s.telegram, t("wa.default"))} />
+        <ContactFab settings={s} whatsapp={waLink(s.whatsapp, t("wa.default"))} telegram={tgLink(s.telegram, t("wa.default"))} />
       )}
     </>
   );
 }
 
+/** Renders "Don't waste your *weekend*!" word by word; the *starred* word gets a drawn underline. */
+function AnimatedTitle({ text }) {
+  let i = 0;
+  return (
+    <h1 className="hero-title">
+      {text.split(/(\*[^*]+\*)/).filter(Boolean).map((part) => {
+        const highlight = part.startsWith("*") && part.endsWith("*");
+        return (highlight ? [part.slice(1, -1)] : part.split(/(\s+)/)).map((word) => {
+          if (/^\s+$/.test(word)) return word;
+          const style = { "--i": i++ };
+          return highlight
+            ? <span key={i} className="word highlight" style={style}>{word}<Scribble /></span>
+            : <span key={i} className="word" style={style}>{word}</span>;
+        });
+      })}
+    </h1>
+  );
+}
+
+function Hero({ s, areas, showBoxAnimation }) {
+  const { t } = useI18n();
+  const { y } = useScroll();
+  const drift = Math.min(y, 600);
+  return (
+    <section className="hero">
+      <div className="hero-blueprint" aria-hidden="true" />
+      <Lamp className="hero-lamp" />
+      <div className="container hero-grid">
+        <div className="hero-copy">
+          <p className="eyebrow"><span className="eyebrow-dot" />{t("hero.eyebrow")}</p>
+          <AnimatedTitle text={t("hero.title")} />
+          <p className="lead">{t("hero.subtitle", { areas })}</p>
+          <div className="actions">
+            <BookButtons s={s} label={t("hero.cta")} />
+            <a className="btn btn-ghost" href="#gallery">{t("hero.secondary")}</a>
+          </div>
+          <div className="badges">
+            <span>⭐ {t("hero.badge", { count: s.happyCustomers })}</span>
+            <span>💶 {t("hero.from", { price: s.startingPrice })}</span>
+          </div>
+        </div>
+        <div className="hero-visual">
+          <div className="hero-frame" style={{ transform: `translateY(${drift * -0.06}px)` }}>
+            {s.heroImage && <img className="hero-img" src={s.heroImage} alt="" />}
+          </div>
+          <Plant className="hero-plant" style={{ transform: `translateY(${drift * -0.15}px)` }} />
+          <div className="float-card float-card-a">⚡ {t("hero.floatA")}</div>
+          <div className="float-card float-card-b">🛡️ {t("hero.floatB")}</div>
+          {showBoxAnimation && <HeroAnimation />}
+        </div>
+      </div>
+      <a href="#services" className="scroll-cue" aria-label={t("nav.services")}><span /></a>
+    </section>
+  );
+}
+
 function Header({ s }) {
   const { t, lang, setLang } = useI18n();
+  const { scrolled } = useScroll();
   return (
-    <header className="header">
+    <header className={`header ${scrolled ? "scrolled" : ""}`}>
+      <ScrollTape />
       <div className="container header-row">
         <a href="#" className="logo">{s.logo ? <img src={s.logo} alt="SISUSETH" /> : "SISUSETH"}</a>
         <nav>
@@ -148,13 +192,16 @@ function Pains({ items }) {
         <p className="center"><strong>{t("pain.pick")}</strong></p>
         <div className="grid grid-3">
           {items.map((p) => (
-            <button key={p.id} className={`card pain ${picked.includes(p.id) ? "picked" : ""}`} onClick={() => toggle(p.id)}>
-              <strong>{p.icon} {p.title}</strong>
+            <button key={p.id} className={`card pain ${picked.includes(p.id) ? "picked" : ""}`}
+                    onClick={() => toggle(p.id)} aria-pressed={picked.includes(p.id)}>
+              <span className="pain-icon">{p.icon || "🪛"}</span>
+              <strong>{p.title}</strong>
               <span>{p.text}</span>
+              <span className="pain-stamp" aria-hidden="true">✓</span>
             </button>
           ))}
         </div>
-        {picked.length > 0 && <p className="center highlight">{t("pain.result", { n: picked.length })}</p>}
+        {picked.length > 0 && <p className="center pain-result" key={picked.length}>🛠️ {t("pain.result", { n: picked.length })}</p>}
       </div>
     </section>
   );
@@ -182,15 +229,15 @@ function Steps({ items, children }) {
       <div className="container">
         <h2 className="center">{t("steps.title")}</h2>
         <p className="center muted">{t("steps.subtitle")}</p>
-        <div className="grid grid-3">
+        <ol className="steps">
           {items.map((step, i) => (
-            <div key={step.id} className="card">
-              <div className="step-num">{i + 1}</div>
+            <li key={step.id} className="step">
+              <div className="step-num"><Screw /><span>{i + 1}</span></div>
               <h3>{step.title}</h3>
               <p>{step.text}</p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
         {children}
       </div>
     </section>
@@ -236,7 +283,12 @@ function Reviews({ items, count, brands }) {
             </figure>
           ))}
         </Carousel>
-        <p className="center muted brands">{t("brands.title")} {brands.join(" · ")}</p>
+        <p className="center muted brands-title">{t("brands.title")}</p>
+        <div className="marquee" aria-label={brands.join(", ")}>
+          <div className="marquee-track">
+            {[...brands, ...brands].map((b, i) => <span key={i} aria-hidden={i >= brands.length}>{b}</span>)}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -259,10 +311,28 @@ function Pricing({ content, settings }) {
         <h2 className="center">{t("pricing.title")}</h2>
         <p className="center muted">{t("pricing.subtitle", { price: settings.startingPrice, hourly: settings.hourlyRate })}</p>
 
+        <div className="grid grid-3">
+          {(content?.packages ?? []).map((p) => (
+            <div key={p.id} className={`card package ${p.popular ? "popular" : ""}`}>
+              {p.popular && <span className="tag">{t("pricing.popular")}</span>}
+              <h3>{p.name}</h3>
+              <div className="price">€{p.price}</div>
+              <p className="muted">{t("pricing.hours", { h: p.hours })}</p>
+              <ul className="checks">
+                <li>{p.description}</li>
+                <li>{t("pricing.tools")}</li>
+                <li>{t("pricing.cleanup")}</li>
+                {p.referralBonus > 0 && <li>{t("pricing.referral", { bonus: p.referralBonus })}</li>}
+              </ul>
+              <BookButtons s={settings} text={t("wa.package", { name: p.name, price: p.price })} label={t("pricing.book", { name: p.name })} />
+            </div>
+          ))}
+        </div>
         {settings.features.product_search && (content?.products ?? []).length > 0 && (
           <ProductSearch products={content.products} BookButtons={BookButtons} settings={settings} />
         )}
 
+        <div className="pricing-tools">
         {option && (
           <div className="card calc">
             <h3>{t("calc.title")}</h3>
@@ -285,23 +355,8 @@ function Pricing({ content, settings }) {
 
         {settings.features.tax_credit && <TaxCredit rules={settings.taxCredit} defaultPrice={estimateEur} />}
 
-        <div className="grid grid-3">
-          {(content?.packages ?? []).map((p) => (
-            <div key={p.id} className={`card package ${p.popular ? "popular" : ""}`}>
-              {p.popular && <span className="tag">{t("pricing.popular")}</span>}
-              <h3>{p.name}</h3>
-              <div className="price">€{p.price}</div>
-              <p className="muted">{t("pricing.hours", { h: p.hours })}</p>
-              <ul className="checks">
-                <li>{p.description}</li>
-                <li>{t("pricing.tools")}</li>
-                <li>{t("pricing.cleanup")}</li>
-                {p.referralBonus > 0 && <li>{t("pricing.referral", { bonus: p.referralBonus })}</li>}
-              </ul>
-              <BookButtons s={settings} text={t("wa.package", { name: p.name, price: p.price })} label={t("pricing.book", { name: p.name })} />
-            </div>
-          ))}
         </div>
+
         <p className="center muted">⚠️ {t("pricing.note")}</p>
       </div>
     </section>
@@ -379,7 +434,7 @@ function Footer({ s }) {
         <div>
           <div className="logo">SISUSETH</div>
           <p>{t("footer.about")}</p>
-          <p>{socials.map(([name, url]) => <a key={name} href={url} target="_blank" rel="noreferrer">{name} </a>)}</p>
+          <p className="footer-social">{socials.map(([name, url]) => <a key={name} href={url} target="_blank" rel="noreferrer">{name}</a>)}</p>
         </div>
         <div>
           <h4>{t("footer.contact")}</h4>

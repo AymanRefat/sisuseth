@@ -5,7 +5,7 @@
   "nav.contact": "Yhteystiedot",
   "nav.book": "Varaa nyt",
   "hero.eyebrow": "Huonekalut vielä laatikoissa?",
-  "hero.title": "Älä tuhlaa viikonloppuasi!",
+  "hero.title": "Älä tuhlaa *viikonloppuasi*!",
   "hero.subtitle": "Ammattimainen kokoaminen sillä aikaa kun nautit elämästä – taattu lopputulos alueella {areas}.",
   "hero.cta": "Varaa kokoaminen",
   "hero.secondary": "Katso töitämme",
@@ -103,5 +103,9 @@
   "ui.next": "Seuraava",
   "ui.close": "Sulje",
   "ui.open": "Avaa kuva",
-  "ui.showMore": "Näytä lisää kuvia"
+  "ui.showMore": "Näytä lisää kuvia",
+  "hero.floatA": "Palvelu jo huomenna",
+  "hero.floatB": "100 % tyytyväisyystakuu",
+  "fab.open": "Ota yhteyttä",
+  "fab.hint": "Varaa 30 sekunnissa 👋"
 }

@@ -5,7 +5,7 @@
   "nav.contact": "Contact",
   "nav.book": "Book now",
   "hero.eyebrow": "Furniture still in boxes?",
-  "hero.title": "Don't waste your weekend!",
+  "hero.title": "Don't waste your *weekend*!",
   "hero.subtitle": "Professional assembly while you enjoy life – guaranteed perfect results in {areas}.",
   "hero.cta": "Book assembly now",
   "hero.secondary": "See our work",
@@ -103,5 +103,9 @@
   "ui.next": "Next",
   "ui.close": "Close",
   "ui.open": "Open photo",
-  "ui.showMore": "Show more photos"
+  "ui.showMore": "Show more photos",
+  "hero.floatA": "Next-day service",
+  "hero.floatB": "100% satisfaction guarantee",
+  "fab.open": "Contact us",
+  "fab.hint": "Book in 30 seconds 👋"
 }
