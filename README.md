@@ -59,12 +59,14 @@ Every CMS list is paginated (25 per page). On the website, long lists are laid o
 
 All content on the page comes from the database, so the owner can edit, replace or delete anything in the CMS.
 
-**`python manage.py migrate` loads the starting content automatically.** A signal in `content/apps.py` (`post_migrate`) runs the `seed` command after all migrations have been applied. It doesn't live inside a numbered migration file, because an old migration would break once the models change later. It loads the prototype's content **once per section**:
+**The first `python manage.py migrate` on an empty database loads the starting content automatically.** A signal in `content/apps.py` (`post_migrate`) runs the `seed` command after all migrations, but **only if the database has never been set up** (it has no Site settings row yet). Every later migrate or deploy skips it entirely, so the owner's content is never touched. The seed doesn't live inside a numbered migration file, because an old migration would break once the models change later.
+
+The `seed` command can also be run by hand, and it is safe to repeat. It loads the prototype's content **once per section**:
 
 - Each section is loaded once, and the section name is then stored in `SiteSettings.seeded_sections`. Later deploys **never** bring back content the owner deleted or changed.
 - If a section already has content, for example on an older database, it is never mixed with the starting content.
 - The owner's uploaded logo and hero image are never replaced.
-- UI text keys: new keys from `frontend/src/locales/*.json` are added, existing texts are never overwritten, and keys removed from the code are deleted.
+- UI text keys: new keys from `frontend/src/locales/*.json` are added, existing texts are never overwritten, and keys removed from the code are deleted. **After a release that adds new text keys, run `manage.py seed` once on the server** so the new texts appear in the CMS. Until then, the website shows the built-in default text for them.
 - To turn this off, set `SEED_ON_MIGRATE=0`. The tests do this and seed their own temporary data.
 - To reload the starting content for a section on purpose (**this deletes that section's current content**):
   `uv run python manage.py seed --reset gallery faq`
@@ -77,7 +79,7 @@ The `frontend/src/locales/*.json` files are the default texts. The site falls ba
 ```bash
 cd backend
 uv sync                                   # creates backend/.venv (Python 3.13)
-uv run python manage.py migrate           # creates the tables AND loads the starting content
+uv run python manage.py migrate           # creates the tables; on an empty DB also loads the starting content
 uv run python manage.py createsuperuser
 uv run python manage.py runserver         # API + CMS on :8000
 

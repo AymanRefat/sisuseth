@@ -5,12 +5,16 @@ from django.db.models.signals import post_migrate
 
 
 def seed_after_migrate(sender, using, verbosity=1, **kwargs):
-    """`migrate` also loads the starting content (after ALL migrations, so it always matches the current models).
+    """Load the starting content ONCE: on the first `migrate` of an empty database.
 
-    Safe on every run: each section is loaded only once, so the owner's deletions and edits are kept.
-    Set SEED_ON_MIGRATE=0 to skip (the tests do).
+    Runs after ALL migrations, so it always matches the current models. On every later migrate/deploy
+    the database already has its SiteSettings row, so this does nothing (one quick query).
+    To add starting content or new text keys to an existing database, run `manage.py seed` by hand.
+    Set SEED_ON_MIGRATE=0 to skip completely (the tests do).
     """
-    if getattr(settings, "SEED_ON_MIGRATE", True):
+    from .models import SiteSettings
+
+    if getattr(settings, "SEED_ON_MIGRATE", True) and not SiteSettings.objects.using(using).exists():
         call_command("seed", verbosity=verbosity)
 
 

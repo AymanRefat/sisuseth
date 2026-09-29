@@ -1,4 +1,6 @@
 """The seed command runs on every deploy, so it must never undo the owner's changes."""
+from unittest import mock
+
 import pytest
 from django.core.management import call_command
 
@@ -75,6 +77,20 @@ def test_migrate_loads_starting_content(settings):
     seed_after_migrate(sender=apps.get_app_config("content"), using="default", verbosity=0)
     assert GalleryImage.objects.count() == 15 and FAQ.objects.count() == 6 and PainPoint.objects.count() == 6
     assert TextBlock.objects.filter(key="hero.title").exists()
+
+
+def test_migrate_does_nothing_on_existing_database(settings):
+    """Later deploys skip seeding entirely: nothing is re-added, not even text keys."""
+    from content.apps import seed_after_migrate
+    from django.apps import apps
+
+    TextBlock.objects.filter(key="hero.title").delete()
+    FAQ.objects.all().delete()
+    settings.SEED_ON_MIGRATE = True
+    with mock.patch("content.apps.call_command") as seed_command:
+        seed_after_migrate(sender=apps.get_app_config("content"), using="default", verbosity=0)
+    seed_command.assert_not_called()
+    assert not TextBlock.objects.filter(key="hero.title").exists() and FAQ.objects.count() == 0
 
 
 def test_migrate_can_skip_seeding(settings):
