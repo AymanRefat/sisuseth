@@ -10,15 +10,34 @@ One small Linux server runs everything: Django + the React site + the CMS in one
    - Add **your SSH key** (`cat ~/.ssh/id_ed25519.pub` on your Mac)
 2. Copy the server's **IPv4 address**.
 
-## 2. Point the Namecheap domain at it (once)
-Namecheap → *Domain List* → **Manage** → **Advanced DNS** → delete the default parking records, then add:
+## 2. Point sisuseth.com at the server (once)
 
-| Type | Host | Value | TTL |
-|---|---|---|---|
-| A Record | `@` | `SERVER_IP` | Automatic |
-| A Record | `www` | `SERVER_IP` | Automatic |
+> ⚠️ **Current setup (checked 2026-09-29):** `sisuseth.com` is *registered* at Namecheap, but its **DNS is managed by Netlify**: the nameservers are `dns1–4.p04.nsone.net`, and the old prototype is hosted on Netlify. **Records added in Namecheap's Advanced DNS are ignored.** Change them in **Netlify** instead.
+>
+> The same DNS zone also runs the customer's **e-mail (Zoho Mail)**. Leave these records untouched, or info@sisuseth.com stops working:
+> `MX mx.zoho.eu / mx2.zoho.eu / mx3.zoho.eu` · `TXT v=spf1 include:zohomail.eu ~all` · `TXT zmail._domainkey` (DKIM) · `TXT _dmarc`
 
-DNS usually takes 5–30 minutes to update. The deploy script checks it and warns if it's not ready yet. HTTPS starts working as soon as it is.
+### Switch-over plan (no e-mail downtime, only minutes of website downtime)
+1. **Deploy first, before touching DNS.** The site will be ready but without HTTPS yet:
+   ```bash
+   DOMAIN=sisuseth.com SKIP_DNS_CHECK=1 ./deploy.sh root@SERVER_IP
+   ```
+   Check the new site before switching, by sending the domain to the new server for your own request only:
+   ```bash
+   curl -sI --resolve sisuseth.com:80:SERVER_IP http://sisuseth.com/ | head -1   # expect a redirect to https (Caddy is running)
+   ```
+2. **Netlify → Sites → (the prototype site) → Domain management:** remove `sisuseth.com` and `www.sisuseth.com` from the site. Netlify locks the DNS records while a site uses them.
+3. **Netlify → Domains → sisuseth.com → DNS records:**
+   - Delete the `NETLIFY`/`A` record for `sisuseth.com` (75.2.60.5) and the `NETLIFY`/`CNAME` record for `www`
+   - Add **A** `sisuseth.com` → `SERVER_IP`
+   - Add **A** `www` → `SERVER_IP`
+   - Don't touch MX / TXT records
+4. Wait 5–30 minutes. Check with `dig +short sisuseth.com` and `dig +short www.sisuseth.com`. Once both show `SERVER_IP`, Caddy fetches the HTTPS certificate automatically on the next visit. If it doesn't, run `$C restart caddy`.
+5. Send a test e-mail to info@sisuseth.com to confirm e-mail still works.
+6. When everything works, the Netlify site can be deleted. Keep the **Netlify DNS zone**, which still holds the e-mail records, unless you move DNS as described below.
+
+### Optional later: move DNS back to Namecheap
+This means one less account to manage. In Namecheap → *Domain* → **Nameservers: Namecheap BasicDNS**, then in **Advanced DNS** recreate **all** records first: the two `A` records plus every Zoho record copied exactly from Netlify (MX ×3, SPF, `zmail._domainkey` DKIM, `_dmarc`). A mistake here breaks e-mail, so it's safer to leave DNS at Netlify if unsure.
 
 ## 3. Deploy
 From the project folder on your Mac:
@@ -39,7 +58,7 @@ The first run asks for the **domain** and an **e-mail** (for HTTPS certificate n
 8. asks you to create the **CMS admin login** (username + password for `/admin`). Give these to the owner
 9. installs a nightly backup at 03:30
 
-To skip the questions: `DOMAIN=sisuseth.com ACME_EMAIL=you@example.com ./deploy.sh root@SERVER_IP`
+To skip the questions: `DOMAIN=sisuseth.com ACME_EMAIL=you@example.com ./deploy.sh root@SERVER_IP`. For the switch-over itself, follow the plan in section 2.
 
 ## 4. Updating the site
 Push to GitHub, then run the same command again:

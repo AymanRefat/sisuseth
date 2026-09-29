@@ -162,7 +162,7 @@ if [[ "${SKIP_DNS_CHECK:-0}" != 1 ]]; then
   for host in "$DOMAIN" "www.$DOMAIN"; do
     resolved=$(dig +short A "$host" | tail -n1)
     if [[ "$resolved" == "$server_ip" ]]; then ok "$host → $server_ip"
-    else warn "$host points to '${resolved:-nothing}', expected $server_ip. Add an A record at Namecheap (docs/DEPLOY.md). HTTPS starts working once it is correct."
+    else warn "$host points to '${resolved:-nothing}', expected $server_ip. Update its A record where the DNS is managed (for sisuseth.com: Netlify DNS, see docs/DEPLOY.md). HTTPS starts once it is correct."
     fi
   done
 fi
