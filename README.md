@@ -7,7 +7,7 @@ Landing page and CMS for SISUSETH Furniture Assembly (Helsinki, Espoo, Vantaa).
 - **Database:** SQLite, stored on a persistent volume. Set `DATABASE_URL` to use Postgres instead
 - **Deploy:** one Docker image containing one process
 
-**Docs:** [Optional features and their on/off switches](docs/FEATURES.md) · [API](docs/API.md)
+**Docs:** [Deploying (one command)](docs/DEPLOY.md) · [Optional features and their on/off switches](docs/FEATURES.md) · [API](docs/API.md)
 
 ## Project structure
 
@@ -92,7 +92,15 @@ Run the tests with `cd backend && uv run pytest`. They are in `backend/tests/`.
 
 The logo is also the favicon. `frontend/public/favicon.png` is the default, and the site switches to the logo uploaded in the CMS as soon as the page loads.
 
-## Run with Docker
+## Deploy to a server
+
+```bash
+./deploy.sh root@SERVER_IP
+```
+
+This sets up the server, HTTPS, the CMS login and backups, and on later runs updates the site. See [docs/DEPLOY.md](docs/DEPLOY.md), including the Namecheap DNS steps.
+
+## Run with Docker (locally)
 
 ```bash
 cp .env.example .env    # then edit the values
