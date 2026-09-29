@@ -1,93 +1,85 @@
-import json
-import logging
-import os
-import urllib.request
+from rest_framework import generics, status
+from rest_framework.decorators import api_view, throttle_classes
+from rest_framework.exceptions import NotFound
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from . import serializers as s
+from .models import (
+    FAQ, LANGS, BeforeAfter, CalculatorOption, GalleryImage, PricingPackage, Product, Referral, SiteSettings,
+    Testimonial, TextBlock, Video,
+)
+from .services import fetch_google_reviews, new_referral_code, notify_telegram
 
-from .models import FAQ, LANGS, BookingRequest, CalculatorOption, GalleryImage, PricingPackage, SiteSettings, Testimonial, TextBlock
 
-
-def _lang(request):
-    lang = request.GET.get("lang", "fi")
+def get_lang(request):
+    lang = request.query_params.get("lang", "fi")
     return lang if lang in LANGS else "fi"
 
 
-@require_GET
+class FormThrottle(AnonRateThrottle):
+    """Limits spam on the public forms."""
+    rate = "20/hour"
+
+
+# Sections of the page: (response key, model, serializer). Only active rows are returned.
+SECTIONS = [
+    ("packages", PricingPackage, s.PricingPackageSerializer),
+    ("calculator", CalculatorOption, s.CalculatorOptionSerializer),
+    ("testimonials", Testimonial, s.TestimonialSerializer),
+    ("faq", FAQ, s.FAQSerializer),
+    ("gallery", GalleryImage, s.GalleryImageSerializer),
+    ("products", Product, s.ProductSerializer),
+    ("beforeAfter", BeforeAfter, s.BeforeAfterSerializer),
+    ("videos", Video, s.VideoSerializer),
+]
+
+
+@api_view(["GET"])
 def site_content(request):
     """Everything the landing page needs, in one request."""
-    lang = _lang(request)
-    active = lambda m: m.objects.filter(is_active=True)  # noqa: E731
-    cfg = SiteSettings.load()
-    return JsonResponse({
-        "settings": {
-            "phone": cfg.phone, "whatsapp": cfg.whatsapp_number, "telegram": cfg.telegram_username.lstrip("@"), "email": cfg.email,
-            "instagram": cfg.instagram_url, "tiktok": cfg.tiktok_url, "facebook": cfg.facebook_url,
-            "areas": [a.strip() for a in cfg.service_areas.split(",") if a.strip()],
-            "happyCustomers": cfg.happy_customers, "startingPrice": cfg.starting_price_eur,
-            "hourlyRate": cfg.hourly_rate_eur, "additionalItem": cfg.additional_item_eur,
-            "brands": [b.strip() for b in cfg.brands.split(",") if b.strip()],
-            "logo": cfg.logo.url if cfg.logo else "", "heroImage": cfg.hero_image.url if cfg.hero_image else "",
-        },
+    lang = get_lang(request)
+    ctx = {"lang": lang}
+    data = {
+        "settings": s.SiteSettingsSerializer(SiteSettings.load(), context=ctx).data,
         # Only non-empty overrides; the frontend falls back to its bundled translations.
         "texts": {b.key: v for b in TextBlock.objects.all() if (v := getattr(b, f"value_{lang}"))},
-        "packages": [
-            {"id": p.id, "name": p.tr("name", lang), "description": p.tr("description", lang),
-             "price": p.price_eur, "hours": p.estimated_hours,
-             "referralBonus": p.referral_bonus_eur, "popular": p.is_popular}
-            for p in active(PricingPackage)
-        ],
-        "calculator": [
-            {"id": o.id, "label": o.tr("label", lang), "price": o.price_eur, "hourly": o.is_hourly}
-            for o in active(CalculatorOption)
-        ],
-        "testimonials": [
-            {"id": t.id, "author": t.author, "city": t.city, "quote": t.tr("quote", lang),
-             "photo": t.photo.url if t.photo else ""}
-            for t in active(Testimonial)
-        ],
-        "faq": [{"id": f.id, "q": f.tr("question", lang), "a": f.tr("answer", lang)} for f in active(FAQ)],
-        "gallery": [{"id": g.id, "src": g.image.url, "caption": g.caption} for g in active(GalleryImage)],
-    })
+    }
+    for key, model, serializer in SECTIONS:
+        data[key] = serializer(model.objects.filter(is_active=True), many=True, context=ctx).data
+    return Response(data)
 
 
-logger = logging.getLogger(__name__)
+class BookingCreate(generics.CreateAPIView):
+    serializer_class = s.BookingRequestSerializer
+    throttle_classes = [FormThrottle]
+
+    def perform_create(self, serializer):
+        notify_telegram(serializer.save())
 
 
-def notify_telegram(booking):
-    """Send new booking requests to the owner's Telegram chat (optional, configured via env)."""
-    token, chat_id = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
-    if not (token and chat_id):
-        return
-    text = (f"🛠 New booking request\n\n👤 {booking.name}\n📞 {booking.phone}\n📍 {booking.city or '-'}\n"
-            f"📅 {booking.preferred_date or '-'}\n🌐 {booking.language.upper()}\n\n{booking.furniture}")
-    req = urllib.request.Request(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        data=json.dumps({"chat_id": chat_id, "text": text}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:  # never fail the customer's request because of a notification
-        logger.exception("Telegram notification failed")
+@api_view(["GET"])
+def google_reviews(request):
+    cfg = SiteSettings.load()
+    data = cfg.feature_google_reviews and fetch_google_reviews(cfg.google_place_id, get_lang(request))
+    return Response(data or {"enabled": False})
 
 
-@csrf_exempt
-@require_POST
-def create_booking(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "invalid json"}, status=400)
-    missing = [f for f in ("name", "phone", "furniture") if not str(data.get(f, "")).strip()]
-    if missing:
-        return JsonResponse({"error": "missing fields", "fields": missing}, status=400)
-    booking = BookingRequest.objects.create(
-        name=data["name"][:100], phone=data["phone"][:30], city=data.get("city", "")[:50],
-        furniture=data["furniture"], preferred_date=data.get("preferred_date") or None,
-        language=data.get("language", "fi")[:2],
-    )
-    notify_telegram(booking)
-    return JsonResponse({"id": booking.id}, status=201)
+@api_view(["POST"])
+@throttle_classes([FormThrottle])
+def create_referral(request):
+    """Customer asks for their own referral code. The same phone number always gets the same code."""
+    if not SiteSettings.load().feature_referrals:
+        raise NotFound
+    serializer = s.ReferralSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    phone = serializer.validated_data["phone"]
+    referral = Referral.objects.filter(phone=phone).first() or serializer.save(
+        code=new_referral_code(serializer.validated_data["name"]))
+    return Response({"code": referral.code}, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+def check_referral(request, code):
+    valid = SiteSettings.load().feature_referrals and Referral.objects.filter(code=code.upper(), is_active=True).exists()
+    return Response({"valid": valid})

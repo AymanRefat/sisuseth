@@ -3,9 +3,33 @@
 Landing page and CMS for SISUSETH Furniture Assembly (Helsinki, Espoo, Vantaa).
 
 - **Frontend:** React (Vite) with a language switcher for Finnish, Swedish and English
-- **Backend:** Django, with dependencies managed by [uv](https://docs.astral.sh/uv/). It serves the JSON API, the built React app, and the admin panel, which is the CMS
+- **Backend:** Django and Django REST Framework, with dependencies managed by [uv](https://docs.astral.sh/uv/). It serves the JSON API, the built React app, and the admin panel, which is the CMS
 - **Database:** SQLite, stored on a persistent volume. Set `DATABASE_URL` to use Postgres instead
 - **Deploy:** one Docker image containing one process
+
+**Docs:** [Optional features and their on/off switches](docs/FEATURES.md) · [API](docs/API.md)
+
+## Project structure
+
+```
+backend/
+  config/            Django settings and URLs (serves /api, /admin, /media and the React build)
+  content/
+    models.py        Everything editable in the CMS, including the FEATURES on/off list
+    serializers.py   DRF serializers (picks the right language)
+    views.py         API endpoints
+    services.py      Telegram alerts, Google reviews, referral codes
+    admin.py         CMS screens
+    management/commands/seed.py   Starting content
+    seed_images/     Starting photos (gallery, logo, hero)
+    tests.py
+frontend/src/
+  App.jsx            Page sections
+  features/          One file per optional feature (docs/FEATURES.md)
+  i18n.jsx           Language switching + CMS text overrides
+  locales/           Default texts in fi / sv / en
+docs/                Documentation
+```
 
 ## What the owner can edit in the CMS (`/admin`)
 
@@ -16,6 +40,10 @@ Landing page and CMS for SISUSETH Furniture Assembly (Helsinki, Espoo, Vantaa).
 | Pricing packages / Calculator options | Names, prices, hours, referral bonus, which package is marked "most popular" |
 | Gallery images | Photos uploaded to this server (stored in `/data/media`). Large uploads are resized to 1600px automatically. Includes 15 starting photos from `backend/content/seed_images` |
 | Testimonials, FAQ | Add, reorder and hide items, in EN, FI and SV |
+| Features | On/off switch for each optional section. See [docs/FEATURES.md](docs/FEATURES.md) |
+| Products | Price search and quiz: product, brand, price, assembly time |
+| Before/after photos, Videos | Uploaded to this server and shown in their own sections |
+| Referrals | Customers' referral codes and how many bookings each one brought |
 | Booking requests | Leads sent from the website form, with a status field (new, contacted, done) |
 
 ## Local development
@@ -32,6 +60,10 @@ cd ../frontend && npm install && npm run dev   # site on :5173 (proxies /api and
 ```
 
 Add a Python dependency with `uv add <package>`.
+
+Run the tests with `uv run python manage.py test content`.
+
+The logo is also the favicon. `frontend/public/favicon.png` is the default, and the site switches to the logo uploaded in the CMS as soon as the page loads.
 
 ## Run with Docker
 

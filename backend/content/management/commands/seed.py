@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 
-from content.models import FAQ, CalculatorOption, GalleryImage, PricingPackage, SiteSettings, Testimonial, TextBlock
+from content.models import FAQ, Product, CalculatorOption, GalleryImage, PricingPackage, SiteSettings, Testimonial, TextBlock
 
 LOCALES_DIR = Path(settings.BASE_DIR).parent / "frontend" / "src" / "locales"
 SEED_IMAGES = Path(__file__).resolve().parents[2] / "seed_images"
@@ -64,6 +64,19 @@ TESTIMONIALS = [
 
 
 
+# Example estimates in the price categories above (small 55 / medium 85 / large 120).
+PRODUCTS = [
+    ("IKEA", "BILLY bookcase", 55, 45), ("IKEA", "KALLAX shelf 2×4", 55, 45), ("IKEA", "LACK coffee table", 55, 20),
+    ("IKEA", "MALM chest of 3 drawers", 55, 60), ("IKEA", "MALM chest of 6 drawers", 85, 90),
+    ("IKEA", "HEMNES chest of 8 drawers", 85, 120), ("IKEA", "BRIMNES wardrobe", 85, 90),
+    ("IKEA", "ALEX desk", 55, 50), ("IKEA", "BEKANT desk", 55, 45), ("IKEA", "MALM bed frame", 85, 75),
+    ("IKEA", "HEMNES day-bed", 85, 120), ("IKEA", "PAX wardrobe 100 cm", 85, 120),
+    ("IKEA", "PAX wardrobe 150 cm with sliding doors", 120, 180), ("IKEA", "KIVIK sofa", 55, 40),
+    ("JYSK", "Wardrobe 2 doors", 85, 90), ("JYSK", "Box spring bed", 55, 45), ("JYSK", "Dining table + 4 chairs", 85, 90),
+    ("ISKU", "Office desk", 55, 50),
+]
+
+
 def tri(prefix, values):
     return {f"{prefix}_{lang}": v for lang, v in zip(("en", "fi", "sv"), values)}
 
@@ -87,6 +100,8 @@ class Command(BaseCommand):
             for i, (names, descs, price, hours, bonus, popular) in enumerate(PACKAGES):
                 PricingPackage.objects.create(order=i, price_eur=price, estimated_hours=hours, referral_bonus_eur=bonus,
                                               is_popular=popular, **tri("name", names), **tri("description", descs))
+        if not Product.objects.exists():
+            Product.objects.bulk_create(Product(brand=b, name=n, price_eur=p, minutes=m) for b, n, p, m in PRODUCTS)
         if not CalculatorOption.objects.exists():
             for i, (labels, price, hourly) in enumerate(CALCULATOR):
                 CalculatorOption.objects.create(order=i, price_eur=price, is_hourly=hourly, **tri("label", labels))

@@ -125,6 +125,7 @@ class BookingRequest(models.Model):
     furniture = models.TextField()
     preferred_date = models.DateField(null=True, blank=True)
     language = models.CharField(max_length=2, default="fi")
+    referral_code = models.CharField(max_length=20, blank=True)
     status = models.CharField(max_length=10, choices=STATUS, default="new")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -133,6 +134,25 @@ class BookingRequest(models.Model):
 
     def __str__(self):
         return f"{self.name} – {self.created_at:%Y-%m-%d}"
+
+
+# On/off switches for optional website features. Each becomes a checkbox in the CMS
+# (Site settings → Features) and is sent to the frontend as settings.features.<key>.
+# Keep in sync with docs/FEATURES.md.
+FEATURES = [
+    # (key, label, default)
+    ("product_search", "Product price search (e.g. 'PAX' → price)", True),
+    ("mobile_bar", "Sticky booking bar on phones", True),
+    ("before_after", "Before/after photo slider", True),
+    ("videos", "Video strip (short clips)", True),
+    ("hours_counter", "'Weekend hours saved' counter", True),
+    ("timeline_animation", "Animated DIY vs SISUSETH timeline", True),
+    ("quiz", "'How long would it take you?' quiz", True),
+    ("hero_animation", "Flat-pack box animation in the hero", True),
+    ("google_reviews", "Google reviews (needs GOOGLE_PLACES_API_KEY + place ID)", False),
+    ("tax_credit", "Household tax credit (kotitalousvähennys) calculator", True),
+    ("referrals", "Referral codes", True),
+]
 
 
 class SiteSettings(models.Model):
@@ -154,8 +174,33 @@ class SiteSettings(models.Model):
     logo = models.ImageField(upload_to="site/", blank=True)
     hero_image = models.ImageField(upload_to="site/", blank=True, help_text="Big photo at the top of the page")
 
+    # Hours counter: shown number = base + completed bookings × hours per job
+    hours_saved_base = models.PositiveIntegerField(default=1000, help_text="Hours saved before bookings were tracked here")
+    hours_per_job = models.DecimalField(max_digits=4, decimal_places=1, default=3, help_text="Weekend hours saved per completed booking")
+
+    # Quiz: DIY time = our assembly time × multiplier
+    quiz_beginner_multiplier = models.DecimalField(max_digits=3, decimal_places=1, default=4)
+    quiz_average_multiplier = models.DecimalField(max_digits=3, decimal_places=1, default=2.5)
+    quiz_handy_multiplier = models.DecimalField(max_digits=3, decimal_places=1, default=1.5)
+
+    # Google reviews
+    google_place_id = models.CharField(max_length=200, blank=True, help_text="From Google's Place ID Finder")
+
+    # Kotitalousvähennys (Finnish household tax credit). Check vero.fi every year.
+    tax_credit_rate_percent = models.PositiveSmallIntegerField(default=35)
+    tax_credit_labour_percent = models.PositiveSmallIntegerField(default=100, help_text="Share of the price that is labour")
+    tax_credit_deductible_eur = models.PositiveIntegerField(default=150, help_text="Yearly own-liability per person")
+    tax_credit_max_eur = models.PositiveIntegerField(default=1600, help_text="Yearly maximum per person")
+
+    # Referrals
+    referral_discount_eur = models.PositiveIntegerField(default=10, help_text="Discount for the friend who books with a code")
+
     class Meta:
         verbose_name = verbose_name_plural = "Site settings"
+
+    @property
+    def features(self):
+        return {key: getattr(self, f"feature_{key}") for key, _, _ in FEATURES}
 
     def __str__(self):
         return "Site settings"
@@ -169,6 +214,77 @@ class SiteSettings(models.Model):
     @classmethod
     def load(cls):
         return cls.objects.get_or_create(pk=1)[0]
+
+
+for _key, _label, _default in FEATURES:
+    SiteSettings.add_to_class(f"feature_{_key}", models.BooleanField(_label, default=_default))
+
+
+class Product(Ordered):
+    """Searchable product with a fixed assembly estimate (feature: product_search, quiz)."""
+
+    name = models.CharField(max_length=100, help_text="e.g. PAX wardrobe 100×58×236")
+    brand = models.CharField(max_length=50, default="IKEA")
+    price_eur = models.PositiveIntegerField()
+    minutes = models.PositiveIntegerField(help_text="Our typical assembly time")
+
+    class Meta(Ordered.Meta):
+        ordering = ["brand", "name"]
+
+    def __str__(self):
+        return f"{self.brand} {self.name}"
+
+
+class BeforeAfter(Translatable, Ordered):
+    before = models.ImageField(upload_to="before_after/")
+    after = models.ImageField(upload_to="before_after/")
+
+    class Meta(Ordered.Meta):
+        verbose_name = verbose_name_plural = "Before/after photos"
+
+    def save(self, *args, **kwargs):
+        shrink_image(self.before)
+        shrink_image(self.after)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.caption_en or f"Before/after #{self.pk}"
+
+
+_add(BeforeAfter, "caption", models.CharField, max_length=150)
+for _lang in LANGS:  # captions are optional
+    BeforeAfter._meta.get_field(f"caption_{_lang}").blank = True
+
+
+class Video(Translatable, Ordered):
+    file = models.FileField(upload_to="videos/", help_text="Short MP4, ideally under 10 MB")
+    poster = models.ImageField(upload_to="videos/", blank=True, help_text="Optional still image shown while loading")
+
+    def save(self, *args, **kwargs):
+        shrink_image(self.poster, 800)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.caption_en or self.file.name
+
+
+_add(Video, "caption", models.CharField, max_length=150)
+for _lang in LANGS:
+    Video._meta.get_field(f"caption_{_lang}").blank = True
+
+
+class Referral(models.Model):
+    code = models.CharField(max_length=20, unique=True)
+    name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=30)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.code} ({self.name})"
 
 
 class TextBlock(Translatable):
